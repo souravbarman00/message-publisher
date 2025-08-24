@@ -1,4 +1,4 @@
-# Render Blueprint for Message Publisher System
+# Alternative render.yaml with static frontend
 services:
   # API Service
   - type: web
@@ -53,12 +53,12 @@ services:
       - key: KAFKA_CONSUMER_GROUP
         value: message-publisher-workers
 
-  # Frontend Service
-  - type: web
+  # Frontend Service (Static Site Alternative)
+  - type: static
     name: message-publisher-frontend
-    runtime: docker
-    dockerfilePath: ./frontend/Dockerfile
-    dockerContext: ./frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./build
+    rootDir: ./frontend
     envVars:
       - key: REACT_APP_API_URL
         fromService:
