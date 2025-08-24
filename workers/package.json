@@ -1,0 +1,26 @@
+{
+  "name": "message-publisher-workers",
+  "version": "1.0.0",
+  "description": "Worker services for message processing",
+  "type": "module",
+  "scripts": {
+    "start:kafka": "node kafka-worker.js",
+    "start:sqs": "node sqs-worker.js",
+    "start:sns": "node sns-worker.js",
+    "start:all": "concurrently \"npm run start:kafka\" \"npm run start:sqs\" \"npm run start:sns\"",
+    "dev:kafka": "nodemon kafka-worker.js",
+    "dev:sqs": "nodemon sqs-worker.js", 
+    "dev:sns": "nodemon sns-worker.js",
+    "dev:all": "concurrently \"npm run dev:kafka\" \"npm run dev:sqs\" \"npm run dev:sns\""
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "aws-sdk": "^2.1467.0",
+    "dotenv": "^16.3.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1",
+    "concurrently": "^8.2.0"
+  }
+}

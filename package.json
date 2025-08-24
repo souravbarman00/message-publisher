@@ -1,0 +1,43 @@
+{
+  "name": "message-publisher-system",
+  "version": "1.0.0",
+  "description": "Full-stack message publisher with Kafka, SNS, and SQS support",
+  "private": true,
+  "scripts": {
+    "install:all": "npm run install:api && npm run install:workers && npm run install:frontend",
+    "install:api": "cd api && npm install",
+    "install:workers": "cd workers && npm install", 
+    "install:frontend": "cd frontend && npm install",
+    "start:api": "cd api && npm start",
+    "start:workers": "cd workers && npm run start:all",
+    "start:frontend": "cd frontend && npm start",
+    "dev:api": "cd api && npm run dev",
+    "dev:workers": "cd workers && npm run dev:all",
+    "dev:frontend": "cd frontend && npm start",
+    "dev:all": "concurrently \"npm run dev:api\" \"npm run dev:workers\" \"npm run dev:frontend\"",
+    "build:frontend": "cd frontend && npm run build",
+    "test": "echo \"Error: no tests specified\" && exit 1",
+    "clean": "rm -rf api/node_modules workers/node_modules frontend/node_modules",
+    "setup": "npm run install:all && npm run setup:env",
+    "setup:env": "echo 'Please configure .env files in api/ and workers/ directories'"
+  },
+  "keywords": [
+    "kafka",
+    "sns",
+    "sqs",
+    "message-publisher",
+    "microservices",
+    "react",
+    "express"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  },
+  "workspaces": [
+    "api",
+    "workers", 
+    "frontend"
+  ]
+}

@@ -1,0 +1,29 @@
+# Dependencies
+node_modules/
+
+# Production build (will be created during build)
+build/
+
+# Environment files (will be set via Render environment variables)
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+*.log
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Test files
+src/**/*.test.js
+src/**/*.spec.js
+
+# Development files
+public/mockServiceWorker.js
