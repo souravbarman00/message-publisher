@@ -47,31 +47,35 @@ pipeline {
             }
         }
 
-       stage('Install Dependencies') {
+      stage('Install Dependencies') {
         parallel {
             stage('API Dependencies') {
                 steps {
                     dir('backend/api') {
-                        bat '"C:\\Program Files\\nodejs\\npm.cmd" ci --no-bin-links'
+                        bat 'rmdir /s /q node_modules || echo "No node_modules to remove"'
+                        bat '"C:\\Program Files\\nodejs\\npm.cmd" install --no-bin-links --legacy-peer-deps --force'
                     }
                 }
             }
             stage('Workers Dependencies') {
                 steps {
                     dir('backend/workers') {
-                        bat '"C:\\Program Files\\nodejs\\npm.cmd" ci --no-bin-links'
+                        bat 'rmdir /s /q node_modules || echo "No node_modules to remove"'
+                        bat '"C:\\Program Files\\nodejs\\npm.cmd" install --no-bin-links --legacy-peer-deps --force'
                     }
                 }
             }
             stage('Frontend Dependencies') {
                 steps {
                     dir('frontend') {
-                        bat '"C:\\Program Files\\nodejs\\npm.cmd" ci --no-bin-links'
+                        bat 'rmdir /s /q node_modules || echo "No node_modules to remove"'
+                        bat '"C:\\Program Files\\nodejs\\npm.cmd" install --no-bin-links --legacy-peer-deps --force'
                     }
                 }
             }
         }
     }
+
 
 
         stage('Lint and Test') {
