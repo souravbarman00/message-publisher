@@ -1,29 +1,21 @@
 pipeline {
-    agent any
-    
-    // Environment variables
-    environment {
-        // Docker Registry Configuration
-        DOCKER_REGISTRY = credentials('docker-registry-url') // Configure in Jenkins
-        DOCKER_CREDENTIALS = credentials('docker-hub-credentials') // Configure in Jenkins
-        
-        // Project Configuration
-        PROJECT_NAME = 'message-publisher'
-        
-        // Docker Image Storage Path
-        DOCKER_IMAGES_PATH = '/var/jenkins/docker-images'
-        
-        // Build Information
-        BUILD_TIMESTAMP = sh(script: 'date +%Y%m%d-%H%M%S', returnStdout: true).trim()
-        GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-        
-        // Version Management
-        VERSION = "${BUILD_NUMBER}-${GIT_COMMIT_SHORT}-${BUILD_TIMESTAMP}"
-        
-        // Service Images
-        API_IMAGE = "${PROJECT_NAME}-api:${VERSION}"
-        FRONTEND_IMAGE = "${PROJECT_NAME}-frontend:${VERSION}"
-        WORKERS_IMAGE = "${PROJECT_NAME}-workers:${VERSION}"
+    stage('Start Kafka') {
+        steps {
+            dir('infra') { // repo contains docker-compose.yml for kafka/zookeeper
+                sh 'docker-compose up -d'
+                // wait for readiness (basic)
+                sh '''
+                    for i in $(seq 1 30); do
+                        if nc -z localhost 9092; then
+                            echo "Kafka ready"
+                            break
+                        fi
+                        sleep 2
+                    done
+                '''
+            }
+        }
+    }
     }
     
     // Build triggers
