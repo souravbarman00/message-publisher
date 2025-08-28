@@ -77,9 +77,9 @@ module.exports = {
     'prefer-const': 'error',
     'prefer-arrow-callback': 'error',
     
-    // Style
+    // Style - Disable linebreak-style for cross-platform compatibility
     'indent': ['error', 2],
-    'linebreak-style': ['error', 'unix'],
+    'linebreak-style': 'off', // Disabled to avoid Windows/Linux conflicts
     'quotes': ['error', 'single'],
     'semi': ['error', 'always'],
     'comma-dangle': ['error', 'never'],
