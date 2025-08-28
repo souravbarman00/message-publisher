@@ -118,7 +118,7 @@ pipeline {
                             
                             try {
                                 dir('frontend') {
-                                    bat 'npm run lint'
+                                    bat 'npx eslint src --ext .js,.jsx --fix'
                                 }
                             } catch (Exception e) {
                                 echo "Frontend lint failed: ${e.getMessage()}"
@@ -212,7 +212,11 @@ pipeline {
                             frontend: "${env.FRONTEND_IMAGE}"
                         ]
                     ]
-                    writeJSON file: 'shared/build-manifest.json', json: manifest, pretty: 4
+                    
+                    // Convert map to JSON string and write to file
+                    def jsonString = groovy.json.JsonOutput.toJson(manifest)
+                    def prettyJson = groovy.json.JsonOutput.prettyPrint(jsonString)
+                    writeFile file: 'shared/build-manifest.json', text: prettyJson
                     archiveArtifacts artifacts: 'shared/build-manifest.json', fingerprint: true
                 }
                 echo "Build manifest generated successfully"
