@@ -56,21 +56,24 @@ pipeline {
                 stage('API Dependencies') {
                     steps {
                         dir('backend/api') {
-                            bat 'npm install'
+                            bat 'rmdir /s /q node_modules || echo "No node_modules to remove"'
+                            bat 'npm ci --no-bin-links'
                         }
                     }
                 }
                 stage('Workers Dependencies') {
                     steps {
                         dir('backend/workers') {
-                            bat 'npm install'
+                            bat 'rmdir /s /q node_modules || echo "No node_modules to remove"'
+                            bat 'npm ci --no-bin-links'
                         }
                     }
                 }
                 stage('Frontend Dependencies') {
                     steps {
                         dir('frontend') {
-                            bat 'npm install'
+                            bat 'rmdir /s /q node_modules || echo "No node_modules to remove"'
+                            bat 'npm ci --no-bin-links'
                         }
                     }
                 }
