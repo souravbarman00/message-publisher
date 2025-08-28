@@ -1,22 +1,5 @@
 pipeline {
-    stage('Start Kafka') {
-        steps {
-            dir('infra') { // repo contains docker-compose.yml for kafka/zookeeper
-                sh 'docker-compose up -d'
-                // wait for readiness (basic)
-                sh '''
-                    for i in $(seq 1 30); do
-                        if nc -z localhost 9092; then
-                            echo "Kafka ready"
-                            break
-                        fi
-                        sleep 2
-                    done
-                '''
-            }
-        }
-    }
-    }
+    agent any
     
     // Build triggers
     triggers {
@@ -59,9 +42,27 @@ pipeline {
                     echo "   Project: ${PROJECT_NAME}"
                     echo "   Version: ${VERSION}"
                     echo "   Branch: ${env.BRANCH_NAME ?: 'main'}"
-                    echo "   Commit: ${GIT_COMMIT_SHORT}"
-                    echo "   Timestamp: ${BUILD_TIMESTAMP}"
-                    echo "   Build Number: ${BUILD_NUMBER}"
+    stages {
+        stage('Start Kafka') {
+            steps {
+                dir('infra') { // repo contains docker-compose.yml for kafka/zookeeper
+                    sh 'docker-compose up -d'
+                    // wait for readiness (basic)
+                    sh '''
+                        for i in $(seq 1 30); do
+                            if nc -z localhost 9092; then
+                                echo "Kafka ready"
+                                break
+                            fi
+                            sleep 2
+                        done
+                    '''
+                }
+            }
+        }
+
+        stage('Checkout') {
+            steps {
                 }
             }
         }
