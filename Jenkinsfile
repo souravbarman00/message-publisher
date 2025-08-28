@@ -47,34 +47,32 @@ pipeline {
             }
         }
 
-        stage('Install Dependencies') {
-            parallel {
-                stage('API Dependencies') {
-                    steps {
-                        dir('backend/api') {
-                            bat 'rmdir /s /q node_modules || echo "No node_modules to remove"'
-                            bat 'npm ci --no-bin-links'
-                        }
+       stage('Install Dependencies') {
+        parallel {
+            stage('API Dependencies') {
+                steps {
+                    dir('backend/api') {
+                        bat '"C:\\Program Files\\nodejs\\npm.cmd" ci --no-bin-links'
                     }
                 }
-                stage('Workers Dependencies') {
-                    steps {
-                        dir('backend/workers') {
-                            bat 'rmdir /s /q node_modules || echo "No node_modules to remove"'
-                            bat 'npm ci --no-bin-links'
-                        }
+            }
+            stage('Workers Dependencies') {
+                steps {
+                    dir('backend/workers') {
+                        bat '"C:\\Program Files\\nodejs\\npm.cmd" ci --no-bin-links'
                     }
                 }
-                stage('Frontend Dependencies') {
-                    steps {
-                        dir('frontend') {
-                            bat 'rmdir /s /q node_modules || echo "No node_modules to remove"'
-                            bat 'npm ci --no-bin-links'
-                        }
+            }
+            stage('Frontend Dependencies') {
+                steps {
+                    dir('frontend') {
+                        bat '"C:\\Program Files\\nodejs\\npm.cmd" ci --no-bin-links'
                     }
                 }
             }
         }
+    }
+
 
         stage('Lint and Test') {
             parallel {
