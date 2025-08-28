@@ -1,11 +1,7 @@
 pipeline {
-    agent any
-    tools {
-        nodejs "node18"
-    }   
+    agent any  
     environment {
         PROJECT_NAME = "message-publisher"
-        SLACK_CHANNEL = '#jenkins-alerts'
     }
 
     stages {
@@ -175,24 +171,10 @@ pipeline {
 
     post {
         success {
-            script {
-                try {
-                    slackSend(channel: SLACK_CHANNEL, color: 'good',
-                        message: "✅ Build succeeded for *${PROJECT_NAME}* version *${env.VERSION}* (<${env.BUILD_URL}|Open>)")
-                } catch (err) {
-                    echo "Slack not configured, skipping notification"
-                }
-            }
+            echo "✅ Build succeeded for ${PROJECT_NAME} version ${env.VERSION}"
         }
         failure {
-            script {
-                try {
-                    slackSend(channel: SLACK_CHANNEL, color: 'danger',
-                        message: "❌ Build failed for *${PROJECT_NAME}* version *${env.VERSION}* (<${env.BUILD_URL}|Open>)")
-                } catch (err) {
-                    echo "Slack not configured, skipping notification"
-                }
-            }
+            echo "❌ Build failed for ${PROJECT_NAME} version ${env.VERSION}"
         }
     }
 }
