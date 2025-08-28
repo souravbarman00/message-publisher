@@ -99,14 +99,22 @@ const MessagePublisher = () => {
       if (response.ok || response.status === 207) { // 207 is partial success
         showToast(data.message || 'Message sent successfully!', 'success');
         
-        // Add to history
+        // Determine the actual status based on response
+        let entryStatus = 'success';
+        if (response.status === 207) {
+          entryStatus = 'partial';
+        } else if (data.success === false) {
+          entryStatus = 'error';
+        }
+        
+        // Add to history with proper result handling
         const historyEntry = {
           id: data.requestId || Date.now(),
           message: message.substring(0, 50) + (message.length > 50 ? '...' : ''),
           publisher: selectedPublisher,
           timestamp: new Date().toLocaleString(),
-          status: data.success ? 'success' : 'partial',
-          results: data.results || data.result
+          status: entryStatus,
+          results: data.results || (data.result ? { [selectedPublisher]: { status: 'success', ...data.result } } : null)
         };
         setHistory(prev => [historyEntry, ...prev].slice(0, 10));
         
@@ -350,16 +358,29 @@ const MessagePublisher = () => {
                           {entry.results && (
                             <div className="text-xs space-y-1">
                               {typeof entry.results === 'object' && !Array.isArray(entry.results) ? (
-                                Object.entries(entry.results).map(([service, result]) => (
-                                  <div key={service} className="flex items-center space-x-1">
-                                    <span className="font-medium capitalize">{service}:</span>
-                                    {result.status === 'success' ? (
-                                      <span className="text-green-600">✓ Success</span>
-                                    ) : (
-                                      <span className="text-red-600">✗ {result.error || 'Failed'}</span>
-                                    )}
-                                  </div>
-                                ))
+                                Object.entries(entry.results).map(([service, result]) => {
+                                  // Handle both single service and multi-service results
+                                  const isSuccess = result.status === 'success' || result.status === 'fulfilled';
+                                  const serviceName = service === entry.publisher ? service.toUpperCase() : service.charAt(0).toUpperCase() + service.slice(1);
+                                  
+                                  return (
+                                    <div key={service} className="flex items-center space-x-1">
+                                      <span className="font-medium">{serviceName}:</span>
+                                      {isSuccess ? (
+                                        <span className="text-green-600">✓ Success</span>
+                                      ) : (
+                                        <span className="text-red-600">✗ {result.error || result.message || 'Failed'}</span>
+                                      )}
+                                      {/* Show additional details for successful operations */}
+                                      {isSuccess && result.messageId && (
+                                        <span className="text-gray-500">({result.messageId.substring(0, 8)}...)</span>
+                                      )}
+                                      {isSuccess && result.partition !== undefined && (
+                                        <span className="text-gray-500">(partition: {result.partition})</span>
+                                      )}
+                                    </div>
+                                  );
+                                })
                               ) : (
                                 <div className="text-green-600">✓ Success</div>
                               )}
@@ -370,6 +391,11 @@ const MessagePublisher = () => {
                             <div className="text-xs text-red-600 mt-1">
                               Error: {entry.error}
                             </div>
+                          )}
+                          
+                          {/* Show success indicator for single services when no detailed results */}
+                          {!entry.results && entry.status === 'success' && (
+                            <div className="text-xs text-green-600">✓ Message published successfully</div>
                           )}
                         </div>
                       </div>
