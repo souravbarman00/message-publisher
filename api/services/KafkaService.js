@@ -3,7 +3,7 @@ import { Kafka } from 'kafkajs';
 class KafkaService {
   constructor() {
     const brokers = process.env.KAFKA_BROKERS ? process.env.KAFKA_BROKERS.split(',') : ['localhost:9092'];
-    
+
     // Check if we need SASL authentication (for managed Kafka services)
     const kafkaConfig = {
       clientId: 'message-publisher-api',
@@ -25,13 +25,13 @@ class KafkaService {
     }
 
     this.kafka = new Kafka(kafkaConfig);
-    
+
     this.producer = this.kafka.producer({
       maxInFlightRequests: 1,
       idempotent: true,
       transactionTimeout: 30000
     });
-    
+
     this.isConnected = false;
     this.connectionPromise = null;
   }
@@ -80,7 +80,7 @@ class KafkaService {
 
       const topic = process.env.KAFKA_TOPIC || 'messages';
       const messageKey = `msg-${messagePayload.id}`;
-      
+
       const kafkaMessage = {
         key: messageKey,
         value: JSON.stringify(messagePayload),
@@ -93,7 +93,7 @@ class KafkaService {
       };
 
       console.log(`📤 Publishing to Kafka topic: ${topic}, key: ${messageKey}`);
-      
+
       const result = await this.producer.send({
         topic: topic,
         messages: [kafkaMessage]
@@ -108,7 +108,7 @@ class KafkaService {
         timestamp: new Date().toISOString()
       };
 
-      console.log(`✅ Message published to Kafka:`, publishResult);
+      console.log('✅ Message published to Kafka:', publishResult);
       return publishResult;
 
     } catch (error) {
@@ -123,7 +123,7 @@ class KafkaService {
       await admin.connect();
 
       const topics = await admin.listTopics();
-      
+
       if (!topics.includes(topicName)) {
         await admin.createTopics({
           topics: [{

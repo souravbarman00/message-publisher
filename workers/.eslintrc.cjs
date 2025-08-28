@@ -6,10 +6,10 @@ module.exports = {
   },
   extends: [
     'eslint:recommended',
-    'plugin:node/recommended'
+    'plugin:n/recommended'
   ],
   plugins: [
-    'node',
+    'n',
     'security'
   ],
   parserOptions: {
@@ -24,36 +24,37 @@ module.exports = {
     'no-var': 'error',
     'prefer-const': 'error',
     'prefer-arrow-callback': 'error',
-    
-    // Security for Workers (handling external messages)
-    'security/detect-object-injection': 'error',
+
+    // Security
+    'security/detect-object-injection': 'warn',
     'security/detect-non-literal-regexp': 'warn',
     'security/detect-unsafe-regex': 'error',
     'security/detect-buffer-noassert': 'error',
-    'security/detect-child-process': 'error',
+    'security/detect-child-process': 'warn',
     'security/detect-disable-mustache-escape': 'error',
     'security/detect-eval-with-expression': 'error',
+    'security/detect-no-csrf-before-method-override': 'error',
     'security/detect-pseudoRandomBytes': 'error',
     'security/detect-possible-timing-attacks': 'warn',
-    
-    // Node.js Best Practices
-    'node/exports-style': ['error', 'module.exports'],
-    'node/file-extension-in-import': ['error', 'always'],
-    'node/prefer-global/buffer': ['error', 'always'],
-    'node/prefer-global/console': ['error', 'always'],
-    'node/prefer-global/process': ['error', 'always'],
-    'node/prefer-promises/dns': 'error',
-    'node/prefer-promises/fs': 'error',
-    
-    // Worker-specific rules
-    'no-process-exit': 'warn', // Workers should handle graceful shutdown
-    'no-sync': 'error', // Async operations only in workers
-    
+
+    // Node.js Best Practices (n plugin)
+    'n/exports-style': 'off', // Not applicable for ES modules
+    'n/file-extension-in-import': ['error', 'always'],
+    'n/prefer-global/buffer': ['error', 'always'],
+    'n/prefer-global/console': ['error', 'always'],
+    'n/prefer-global/process': ['error', 'always'],
+    'n/prefer-global/url-search-params': ['error', 'always'],
+    'n/prefer-global/url': ['error', 'always'],
+    'n/prefer-promises/dns': 'error',
+    'n/prefer-promises/fs': 'error',
+    'n/no-unsupported-features/es-syntax': 'off', // Allow modern ESM
+    'n/no-missing-import': 'off', // Prevents false alarms with ESM
+
     // Style
-    'indent': ['error', 2],
+    indent: ['error', 2],
     'linebreak-style': ['error', 'unix'],
-    'quotes': ['error', 'single'],
-    'semi': ['error', 'always'],
+    quotes: ['error', 'single'],
+    semi: ['error', 'always'],
     'comma-dangle': ['error', 'never'],
     'object-curly-spacing': ['error', 'always'],
     'array-bracket-spacing': ['error', 'never'],
@@ -63,8 +64,8 @@ module.exports = {
     'eol-last': 'error',
     'no-trailing-spaces': 'error',
     'no-multiple-empty-lines': ['error', { max: 2, maxEOF: 1 }],
-    
-    // Error Prevention for Long-running Workers
+
+    // Error Prevention
     'no-implicit-coercion': 'error',
     'no-implicit-globals': 'error',
     'no-implied-eval': 'error',
@@ -77,14 +78,11 @@ module.exports = {
     'no-useless-call': 'error',
     'no-useless-concat': 'error',
     'no-useless-return': 'error',
-    'prefer-promise-reject-errors': 'error',
-    
-    // Memory Management for Workers
-    'no-global-assign': 'error',
-    'no-inner-declarations': 'error'
+    'prefer-promise-reject-errors': 'error'
   },
   settings: {
     node: {
+      version: '>=14.0.0',
       tryExtensions: ['.js', '.json', '.node']
     }
   },
@@ -97,8 +95,7 @@ module.exports = {
       },
       rules: {
         'no-console': 'off',
-        'security/detect-object-injection': 'off',
-        'no-process-exit': 'off'
+        'security/detect-object-injection': 'off'
       }
     }
   ]

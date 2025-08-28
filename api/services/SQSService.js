@@ -6,13 +6,13 @@ dotenv.config();
 class SQSService {
   constructor() {
     // Configure AWS for SQS (ap-southeast-1)
-    this.sqs = new AWS.SQS({ 
+    this.sqs = new AWS.SQS({
       apiVersion: '2012-11-05',
       region: 'ap-southeast-1',  // Hard-coded for SQS region
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
     });
-    
+
     this.queueUrl = process.env.SQS_QUEUE_URL;
 
     if (!this.queueUrl) {
@@ -82,7 +82,7 @@ class SQSService {
         timestamp: new Date().toISOString()
       };
 
-      console.log(`✅ Message sent to SQS:`, sendResult);
+      console.log('✅ Message sent to SQS:', sendResult);
       return sendResult;
 
     } catch (error) {
@@ -138,7 +138,7 @@ class SQSService {
         timestamp: new Date().toISOString()
       };
 
-      console.log(`✅ Delayed message sent to SQS:`, sendResult);
+      console.log('✅ Delayed message sent to SQS:', sendResult);
       return sendResult;
 
     } catch (error) {
@@ -192,7 +192,7 @@ class SQSService {
         allResults.push(result);
       }
 
-      const sendResults = allResults.flatMap(result => 
+      const sendResults = allResults.flatMap(result =>
         result.Successful.map(success => ({
           success: true,
           messageId: success.MessageId,
@@ -255,7 +255,7 @@ class SQSService {
       };
 
       await this.sqs.deleteMessage(params).promise();
-      console.log(`✅ Message deleted from SQS`);
+      console.log('✅ Message deleted from SQS');
 
     } catch (error) {
       console.error('❌ Error deleting message from SQS:', error);
@@ -299,7 +299,7 @@ class SQSService {
       };
 
       await this.sqs.purgeQueue(params).promise();
-      console.log(`✅ SQS queue purged`);
+      console.log('✅ SQS queue purged');
 
       return { success: true, queueUrl: this.queueUrl };
 

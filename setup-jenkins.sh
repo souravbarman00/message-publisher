@@ -98,7 +98,7 @@ HOST_GID=$(id -g)
 DOCKER_GID=$DOCKER_GID
 
 # Jenkins Configuration
-JENKINS_HTTP_PORT=8080
+JENKINS_HTTP_PORT=8081
 JENKINS_AGENT_PORT=50000
 
 # Java Options
@@ -127,11 +127,11 @@ services:
     restart: unless-stopped
     
     ports:
-      - "\${JENKINS_HTTP_PORT:-8080}:8080"
+      - "\${JENKINS_HTTP_PORT:-8081}:8081"
       - "\${JENKINS_AGENT_PORT:-50000}:50000"
     
     environment:
-      - JENKINS_OPTS=--httpPort=8080
+      - JENKINS_OPTS=--httpPort=8081
       - JAVA_OPTS=\${JAVA_OPTS}
     
     volumes:
@@ -152,7 +152,7 @@ services:
     user: "\${HOST_UID}:\${DOCKER_GID}"
     
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/login"]
+      test: ["CMD", "curl", "-f", "http://localhost:8081/login"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -203,7 +203,7 @@ start_jenkins() {
         echo "  docker-compose -f docker-compose.jenkins.yml logs -f jenkins"
         echo ""
         print_info "Once ready, access Jenkins at:"
-        echo "  http://localhost:${JENKINS_HTTP_PORT:-8080}"
+        echo "  http://localhost:${JENKINS_HTTP_PORT:-8081}"
         echo ""
         print_info "Get the initial admin password with:"
         echo "  docker exec message-publisher-jenkins cat /var/jenkins_home/secrets/initialAdminPassword"
@@ -226,7 +226,7 @@ show_status() {
         print_info "Waiting for Jenkins to be ready..."
         
         for i in {1..60}; do
-            if curl -s http://localhost:8080/login > /dev/null 2>&1; then
+            if curl -s http://localhost:8081/login > /dev/null 2>&1; then
                 print_success "Jenkins is ready!"
                 break
             fi
@@ -244,7 +244,7 @@ show_status() {
         fi
         
         echo ""
-        print_info "🌐 Access Jenkins at: http://localhost:8080"
+        print_info "🌐 Access Jenkins at: http://localhost:8081"
         print_info "📚 Follow the setup guide in .github/jenkins-setup.md"
         
     else

@@ -6,10 +6,10 @@ module.exports = {
   },
   extends: [
     'eslint:recommended',
-    'plugin:node/recommended'
+    'plugin:n/recommended'
   ],
   plugins: [
-    'node',
+    'n',
     'security'
   ],
   parserOptions: {
@@ -24,7 +24,7 @@ module.exports = {
     'no-var': 'error',
     'prefer-const': 'error',
     'prefer-arrow-callback': 'error',
-    
+
     // Security
     'security/detect-object-injection': 'warn',
     'security/detect-non-literal-regexp': 'warn',
@@ -36,23 +36,25 @@ module.exports = {
     'security/detect-no-csrf-before-method-override': 'error',
     'security/detect-pseudoRandomBytes': 'error',
     'security/detect-possible-timing-attacks': 'warn',
-    
-    // Node.js Best Practices
-    'node/exports-style': ['error', 'module.exports'],
-    'node/file-extension-in-import': ['error', 'always'],
-    'node/prefer-global/buffer': ['error', 'always'],
-    'node/prefer-global/console': ['error', 'always'],
-    'node/prefer-global/process': ['error', 'always'],
-    'node/prefer-global/url-search-params': ['error', 'always'],
-    'node/prefer-global/url': ['error', 'always'],
-    'node/prefer-promises/dns': 'error',
-    'node/prefer-promises/fs': 'error',
-    
+
+    // Node.js Best Practices (n plugin)
+    'n/exports-style': 'off', // Not applicable for ES modules
+    'n/file-extension-in-import': ['error', 'always'],
+    'n/prefer-global/buffer': ['error', 'always'],
+    'n/prefer-global/console': ['error', 'always'],
+    'n/prefer-global/process': ['error', 'always'],
+    'n/prefer-global/url-search-params': ['error', 'always'],
+    'n/prefer-global/url': ['error', 'always'],
+    'n/prefer-promises/dns': 'error',
+    'n/prefer-promises/fs': 'error',
+    'n/no-unsupported-features/es-syntax': 'off', // Allow modern ESM
+    'n/no-missing-import': 'off', // Prevents false alarms with ESM
+
     // Style
-    'indent': ['error', 2],
+    indent: ['error', 2],
     'linebreak-style': ['error', 'unix'],
-    'quotes': ['error', 'single'],
-    'semi': ['error', 'always'],
+    quotes: ['error', 'single'],
+    semi: ['error', 'always'],
     'comma-dangle': ['error', 'never'],
     'object-curly-spacing': ['error', 'always'],
     'array-bracket-spacing': ['error', 'never'],
@@ -62,7 +64,7 @@ module.exports = {
     'eol-last': 'error',
     'no-trailing-spaces': 'error',
     'no-multiple-empty-lines': ['error', { max: 2, maxEOF: 1 }],
-    
+
     // Error Prevention
     'no-implicit-coercion': 'error',
     'no-implicit-globals': 'error',
@@ -80,6 +82,7 @@ module.exports = {
   },
   settings: {
     node: {
+      version: '>=14.0.0',
       tryExtensions: ['.js', '.json', '.node']
     }
   },

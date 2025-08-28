@@ -5,13 +5,13 @@ dotenv.config();
 class SNSService {
   constructor() {
     // Configure AWS for SNS (ap-southeast-1)
-    this.sns = new AWS.SNS({ 
+    this.sns = new AWS.SNS({
       apiVersion: '2010-03-31',
       region: 'ap-southeast-1',  // Hard-coded for SNS region
       accessKeyId: process.env.AWS_ACCESS_KEY_ID,
       secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
     });
-    
+
     this.topicArn = process.env.SNS_TOPIC_ARN;
 
     if (!this.topicArn) {
@@ -60,7 +60,7 @@ class SNSService {
         timestamp: new Date().toISOString()
       };
 
-      console.log(`✅ Message published to SNS:`, publishResult);
+      console.log('✅ Message published to SNS:', publishResult);
       return publishResult;
 
     } catch (error) {
@@ -97,7 +97,7 @@ class SNSService {
         timestamp: new Date().toISOString()
       };
 
-      console.log(`✅ SMS sent via SNS:`, publishResult);
+      console.log('✅ SMS sent via SNS:', publishResult);
       return publishResult;
 
     } catch (error) {
@@ -188,7 +188,7 @@ class SNSService {
       };
 
       const result = await this.sns.createTopic(params).promise();
-      
+
       console.log(`✅ SNS topic '${topicName}' created: ${result.TopicArn}`);
       return {
         success: true,

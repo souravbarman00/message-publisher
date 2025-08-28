@@ -1,6 +1,7 @@
 module.exports = {
   env: {
     browser: true,
+    node: true,
     es2022: true,
     jest: true
   },
@@ -98,7 +99,6 @@ module.exports = {
     'react/jsx-closing-tag-location': 'error',
     'react/jsx-curly-spacing': ['error', 'never'],
     'react/jsx-equals-spacing': ['error', 'never'],
-    'react/jsx-no-trailing-spaces': 'error',
     'react/jsx-props-no-multi-spaces': 'error',
     'react/jsx-tag-spacing': 'error',
     'react/jsx-wrap-multilines': 'error'

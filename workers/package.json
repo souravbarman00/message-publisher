@@ -18,16 +18,17 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
-    "kafkajs": "^2.2.4",
     "aws-sdk": "^2.1467.0",
     "dotenv": "^16.3.1",
+    "eslint-plugin-n": "^17.21.3",
+    "kafkajs": "^2.2.4",
     "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1",
     "concurrently": "^8.2.0",
     "eslint": "^8.50.0",
     "eslint-plugin-node": "^11.1.0",
-    "eslint-plugin-security": "^1.7.1"
+    "eslint-plugin-security": "^1.7.1",
+    "nodemon": "^3.0.1"
   }
 }

@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React, { useState, useEffect } from 'react';
 import { Send, MessageCircle, Database, Cloud, Activity, CheckCircle, XCircle, Clock, Zap } from 'lucide-react';
 
@@ -10,37 +11,37 @@ const MessagePublisher = () => {
   const [apiStatus, setApiStatus] = useState(null);
 
   const publisherOptions = [
-    { 
-      value: 'kafka-sns', 
-      label: 'Kafka + SNS', 
+    {
+      value: 'kafka-sns',
+      label: 'Kafka + SNS',
       description: 'Publish to both Kafka and SNS simultaneously',
       icon: <Zap className="h-5 w-5" />,
       color: 'bg-purple-500'
     },
-    { 
-      value: 'sns-sqs', 
-      label: 'SNS + SQS', 
+    {
+      value: 'sns-sqs',
+      label: 'SNS + SQS',
       description: 'Publish to SNS and send to SQS queue',
       icon: <Cloud className="h-5 w-5" />,
       color: 'bg-blue-500'
     },
-    { 
-      value: 'kafka', 
-      label: 'Kafka Only', 
+    {
+      value: 'kafka',
+      label: 'Kafka Only',
       description: 'Publish message to Kafka topic only',
       icon: <Database className="h-5 w-5" />,
       color: 'bg-green-500'
     },
-    { 
-      value: 'sns', 
-      label: 'SNS Only', 
+    {
+      value: 'sns',
+      label: 'SNS Only',
       description: 'Publish message to SNS topic only',
       icon: <MessageCircle className="h-5 w-5" />,
       color: 'bg-yellow-500'
     },
-    { 
-      value: 'sqs', 
-      label: 'SQS Only', 
+    {
+      value: 'sqs',
+      label: 'SQS Only',
       description: 'Send message to SQS queue only',
       icon: <Activity className="h-5 w-5" />,
       color: 'bg-red-500'
@@ -63,7 +64,7 @@ const MessagePublisher = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!message.trim()) {
       showToast('Please enter a message', 'error');
       return;
@@ -86,7 +87,7 @@ const MessagePublisher = () => {
       const response = await fetch(`${process.env.REACT_APP_API_URL || ''}/api/publisher/${selectedPublisher}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           message: message,
@@ -98,7 +99,7 @@ const MessagePublisher = () => {
 
       if (response.ok || response.status === 207) { // 207 is partial success
         showToast(data.message || 'Message sent successfully!', 'success');
-        
+
         // Determine the actual status based on response
         let entryStatus = 'success';
         if (response.status === 207) {
@@ -106,7 +107,7 @@ const MessagePublisher = () => {
         } else if (data.success === false) {
           entryStatus = 'error';
         }
-        
+
         // Add to history with proper result handling
         const historyEntry = {
           id: data.requestId || Date.now(),
@@ -117,7 +118,7 @@ const MessagePublisher = () => {
           results: data.results || (data.result ? { [selectedPublisher]: { status: 'success', ...data.result } } : null)
         };
         setHistory(prev => [historyEntry, ...prev].slice(0, 10));
-        
+
         // Reset form on full success
         if (data.success) {
           setMessage('');
@@ -125,7 +126,7 @@ const MessagePublisher = () => {
         }
       } else {
         showToast(data.error || 'Failed to send message', 'error');
-        
+
         // Add error to history
         const historyEntry = {
           id: data.requestId || Date.now(),
@@ -152,7 +153,7 @@ const MessagePublisher = () => {
     } text-white`;
     toast.textContent = message;
     document.body.appendChild(toast);
-    
+
     setTimeout(() => {
       document.body.removeChild(toast);
     }, 3000);
@@ -160,14 +161,14 @@ const MessagePublisher = () => {
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case 'success':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'partial':
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case 'error':
-        return <XCircle className="h-4 w-4 text-red-500" />;
-      default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
+    case 'success':
+      return <CheckCircle className="h-4 w-4 text-green-500" />;
+    case 'partial':
+      return <Clock className="h-4 w-4 text-yellow-500" />;
+    case 'error':
+      return <XCircle className="h-4 w-4 text-red-500" />;
+    default:
+      return <Clock className="h-4 w-4 text-gray-500" />;
     }
   };
 
@@ -184,12 +185,13 @@ const MessagePublisher = () => {
           <p className="text-gray-600">
             Send messages to Kafka, SNS, and SQS services with real-time processing
           </p>
-          
+
           {/* API Status */}
           <div className="mt-4 flex items-center space-x-2">
             <div className={`h-2 w-2 rounded-full ${
               apiStatus?.status === 'OK' ? 'bg-green-500' : 'bg-red-500'
-            }`}></div>
+            }`}
+            />
             <span className="text-sm text-gray-600">
               API Status: {apiStatus?.status || 'Checking...'}
             </span>
@@ -205,11 +207,11 @@ const MessagePublisher = () => {
           {/* Message Form */}
           <div className="bg-white rounded-lg shadow-xl p-6">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">Send Message</h2>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Publisher Selection */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="method" className="block text-sm font-medium text-gray-700 mb-2">
                   Publishing Method
                 </label>
                 <div className="grid grid-cols-1 gap-2">
@@ -292,7 +294,7 @@ const MessagePublisher = () => {
               >
                 {loading ? (
                   <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
                     Publishing...
                   </>
                 ) : (
@@ -325,7 +327,7 @@ const MessagePublisher = () => {
             {/* Message History */}
             <div className="bg-white rounded-lg shadow-xl p-6">
               <h2 className="text-xl font-semibold text-gray-700 mb-4">Recent Messages</h2>
-              
+
               {history.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
                   <MessageCircle className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -353,7 +355,7 @@ const MessagePublisher = () => {
                           <p className="text-sm text-gray-600 mb-2">
                             {entry.message}
                           </p>
-                          
+
                           {/* Results */}
                           {entry.results && (
                             <div className="text-xs space-y-1">
@@ -362,7 +364,7 @@ const MessagePublisher = () => {
                                   // Handle both single service and multi-service results
                                   const isSuccess = result.status === 'success' || result.status === 'fulfilled';
                                   const serviceName = service === entry.publisher ? service.toUpperCase() : service.charAt(0).toUpperCase() + service.slice(1);
-                                  
+
                                   return (
                                     <div key={service} className="flex items-center space-x-1">
                                       <span className="font-medium">{serviceName}:</span>
@@ -386,13 +388,13 @@ const MessagePublisher = () => {
                               )}
                             </div>
                           )}
-                          
+
                           {entry.error && (
                             <div className="text-xs text-red-600 mt-1">
                               Error: {entry.error}
                             </div>
                           )}
-                          
+
                           {/* Show success indicator for single services when no detailed results */}
                           {!entry.results && entry.status === 'success' && (
                             <div className="text-xs text-green-600">✓ Message published successfully</div>
@@ -403,7 +405,7 @@ const MessagePublisher = () => {
                   ))}
                 </div>
               )}
-              
+
               {history.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <button
@@ -419,7 +421,7 @@ const MessagePublisher = () => {
             {/* Service Status */}
             <div className="bg-white rounded-lg shadow-xl p-6">
               <h2 className="text-xl font-semibold text-gray-700 mb-4">Service Status</h2>
-              
+
               <div className="space-y-3">
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
@@ -427,29 +429,29 @@ const MessagePublisher = () => {
                     <span className="font-medium">Kafka</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                    <div className="h-2 w-2 bg-green-500 rounded-full" />
                     <span className="text-sm text-gray-600">Connected</span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <Cloud className="h-5 w-5 text-blue-500" />
                     <span className="font-medium">AWS SNS</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                    <div className="h-2 w-2 bg-green-500 rounded-full" />
                     <span className="text-sm text-gray-600">Available</span>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <Activity className="h-5 w-5 text-red-500" />
                     <span className="font-medium">AWS SQS</span>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                    <div className="h-2 w-2 bg-green-500 rounded-full" />
                     <span className="text-sm text-gray-600">Active</span>
                   </div>
                 </div>

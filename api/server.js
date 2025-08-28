@@ -116,7 +116,7 @@ app.use('*', (req, res) => {
 });
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+app.use((err, req, res, _next) => {
   console.error('Error:', err);
   res.status(500).json({
     error: 'Internal server error',
@@ -136,7 +136,9 @@ app.listen(PORT, () => {
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('\\n🔄 Shutting down gracefully...');
+  // eslint-disable-next-line n/no-process-exit
   process.exit(0);
+
 });
 
 export default app;

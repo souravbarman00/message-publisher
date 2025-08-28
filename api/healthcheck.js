@@ -1,5 +1,8 @@
 // Simple health check for Docker
-const http = require('http');
+/* eslint-disable n/no-process-exit */
+
+
+import http from 'http';
 
 const options = {
   hostname: 'localhost',

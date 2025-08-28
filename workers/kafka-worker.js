@@ -1,3 +1,4 @@
+/* eslint-disable n/no-process-exit */
 import { Kafka } from 'kafkajs';
 import dotenv from 'dotenv';
 
@@ -15,7 +16,7 @@ class KafkaWorker {
       }
     });
 
-    this.consumer = this.kafka.consumer({ 
+    this.consumer = this.kafka.consumer({
       groupId: process.env.KAFKA_CONSUMER_GROUP || 'message-publisher-workers',
       sessionTimeout: 30000,
       heartbeatInterval: 3000
@@ -28,7 +29,7 @@ class KafkaWorker {
   async start() {
     try {
       console.log('🚀 Starting Kafka Worker...');
-      
+
       await this.consumer.connect();
       console.log('✅ Kafka consumer connected');
 
@@ -69,7 +70,7 @@ class KafkaWorker {
 
       const messageData = JSON.parse(messageValue);
       const messageKey = message.key?.toString();
-      
+
       console.log('📨 Processing Kafka message:', {
         topic,
         partition,
@@ -94,7 +95,7 @@ class KafkaWorker {
         key: message.key?.toString(),
         value: message.value?.toString()
       });
-      
+
       // In production, you might want to send failed messages to a DLQ
       // or implement retry logic
     }
@@ -102,41 +103,41 @@ class KafkaWorker {
 
   async handleMessageByType(messageData) {
     switch (messageData.type) {
-      case 'kafka-sns':
-        await this.processKafkaSnsMessage(messageData);
-        break;
-      case 'kafka-only':
-        await this.processKafkaOnlyMessage(messageData);
-        break;
-      default:
-        await this.processGenericMessage(messageData);
+    case 'kafka-sns':
+      await this.processKafkaSnsMessage(messageData);
+      break;
+    case 'kafka-only':
+      await this.processKafkaOnlyMessage(messageData);
+      break;
+    default:
+      await this.processGenericMessage(messageData);
     }
   }
 
   async processKafkaSnsMessage(messageData) {
     console.log('🔄 Processing Kafka+SNS message:', messageData.content);
-    
+
     // Example: Save to database, call external API, etc.
     await this.simulateProcessing();
-    
+
     console.log('✅ Kafka+SNS message processed successfully');
   }
 
   async processKafkaOnlyMessage(messageData) {
     console.log('🔄 Processing Kafka-only message:', messageData.content);
-    
+
     // Example: Save to database, send email, etc.
     await this.simulateProcessing();
-    
+
     console.log('✅ Kafka-only message processed successfully');
   }
 
   async processGenericMessage(messageData) {
     console.log('🔄 Processing generic message:', messageData.content);
-    
+
     // Generic message processing
     await this.simulateProcessing();
-    
+
     console.log('✅ Generic message processed successfully');
   }
 
@@ -149,7 +150,7 @@ class KafkaWorker {
     try {
       console.log('🔄 Stopping Kafka Worker...');
       this.isRunning = false;
-      
+
       await this.consumer.disconnect();
       console.log('✅ Kafka worker stopped');
     } catch (error) {

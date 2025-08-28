@@ -14,14 +14,14 @@ const sqsService = new SQSService();
 // Middleware for request validation
 const validateMessage = (req, res, next) => {
   const { message } = req.body;
-  
+
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
     return res.status(400).json({
       error: 'Message is required and must be a non-empty string',
       timestamp: new Date().toISOString()
     });
   }
-  
+
   next();
 };
 
@@ -29,14 +29,14 @@ const validateMessage = (req, res, next) => {
 router.post('/kafka-sns', validateMessage, async (req, res) => {
   const requestId = uuidv4();
   const { message, metadata = {} } = req.body;
-  
+
   console.log(`[${requestId}] Processing Kafka + SNS request`);
   console.log('Environment check:', {
-    kafkaTopicSet: !!process.env.KAFKA_TOPIC,
-    snsTopicSet: !!process.env.SNS_TOPIC_ARN,
-    awsRegionSet: !!process.env.AWS_REGION
+    kafkaTopicSet: Boolean(process.env.KAFKA_TOPIC),
+    snsTopicSet: Boolean(process.env.SNS_TOPIC_ARN),
+    awsRegionSet: Boolean(process.env.AWS_REGION)
   });
-  
+
   try {
     const messagePayload = {
       id: requestId,
@@ -107,9 +107,9 @@ router.post('/kafka-sns', validateMessage, async (req, res) => {
 router.post('/sns-sqs', validateMessage, async (req, res) => {
   const requestId = uuidv4();
   const { message, metadata = {} } = req.body;
-  
+
   console.log(`[${requestId}] Processing SNS + SQS request`);
-  
+
   try {
     const messagePayload = {
       id: requestId,
@@ -180,9 +180,9 @@ router.post('/sns-sqs', validateMessage, async (req, res) => {
 router.post('/kafka', validateMessage, async (req, res) => {
   const requestId = uuidv4();
   const { message, metadata = {} } = req.body;
-  
+
   console.log(`[${requestId}] Processing Kafka request`);
-  
+
   try {
     const messagePayload = {
       id: requestId,
@@ -219,9 +219,9 @@ router.post('/kafka', validateMessage, async (req, res) => {
 router.post('/sns', validateMessage, async (req, res) => {
   const requestId = uuidv4();
   const { message, metadata = {} } = req.body;
-  
+
   console.log(`[${requestId}] Processing SNS request`);
-  
+
   try {
     const messagePayload = {
       id: requestId,
@@ -258,9 +258,9 @@ router.post('/sns', validateMessage, async (req, res) => {
 router.post('/sqs', validateMessage, async (req, res) => {
   const requestId = uuidv4();
   const { message, metadata = {} } = req.body;
-  
+
   console.log(`[${requestId}] Processing SQS request`);
-  
+
   try {
     const messagePayload = {
       id: requestId,

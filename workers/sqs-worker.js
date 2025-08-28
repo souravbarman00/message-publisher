@@ -1,3 +1,5 @@
+/* eslint-disable n/no-process-exit */
+
 import AWS from 'aws-sdk';
 import dotenv from 'dotenv';
 
@@ -30,10 +32,10 @@ class SQSWorker {
       console.log('🚀 Starting SQS Worker...');
       console.log(`📍 Queue URL: ${this.queueUrl}`);
       console.log(`⏱️  Poll Interval: ${this.pollInterval}ms`);
-      
+
       this.isRunning = true;
       await this.startPolling();
-      
+
       console.log('✅ SQS Worker started successfully');
     } catch (error) {
       console.error('❌ Error starting SQS worker:', error);
@@ -82,7 +84,7 @@ class SQSWorker {
       console.log(`📨 Received ${data.Messages.length} messages`);
 
       // Process messages concurrently
-      const processingPromises = data.Messages.map(message => 
+      const processingPromises = data.Messages.map(message =>
         this.processMessage(message)
       );
 
@@ -96,7 +98,7 @@ class SQSWorker {
   async processMessage(message) {
     try {
       const messageBody = JSON.parse(message.Body);
-      
+
       console.log('📨 Processing SQS message:', {
         messageId: message.MessageId,
         type: messageBody.type,
@@ -109,7 +111,7 @@ class SQSWorker {
 
       // Delete message after successful processing
       await this.deleteMessage(message.ReceiptHandle);
-      
+
       console.log(`✅ Successfully processed and deleted message: ${message.MessageId}`);
 
     } catch (error) {
@@ -119,7 +121,7 @@ class SQSWorker {
         body: message.Body,
         attributes: message.MessageAttributes
       });
-      
+
       // In production, you might want to:
       // 1. Increment a retry counter in message attributes
       // 2. Send to DLQ after max retries
@@ -129,41 +131,41 @@ class SQSWorker {
 
   async handleMessageByType(messageData) {
     switch (messageData.type) {
-      case 'sns-sqs':
-        await this.processSnsToSqsMessage(messageData);
-        break;
-      case 'sqs-only':
-        await this.processSqsOnlyMessage(messageData);
-        break;
-      default:
-        await this.processGenericMessage(messageData);
+    case 'sns-sqs':
+      await this.processSnsToSqsMessage(messageData);
+      break;
+    case 'sqs-only':
+      await this.processSqsOnlyMessage(messageData);
+      break;
+    default:
+      await this.processGenericMessage(messageData);
     }
   }
 
   async processSnsToSqsMessage(messageData) {
     console.log('🔄 Processing SNS→SQS message:', messageData.content);
-    
+
     // Example processing: Save to database, call API, send notification
     await this.simulateProcessing();
-    
+
     console.log('✅ SNS→SQS message processed successfully');
   }
 
   async processSqsOnlyMessage(messageData) {
     console.log('🔄 Processing SQS-only message:', messageData.content);
-    
+
     // Example processing: File processing, data transformation, etc.
     await this.simulateProcessing();
-    
+
     console.log('✅ SQS-only message processed successfully');
   }
 
   async processGenericMessage(messageData) {
     console.log('🔄 Processing generic message:', messageData.content);
-    
+
     // Generic message processing
     await this.simulateProcessing();
-    
+
     console.log('✅ Generic message processed successfully');
   }
 
@@ -181,7 +183,7 @@ class SQSWorker {
       };
 
       await this.sqs.deleteMessage(params).promise();
-      
+
     } catch (error) {
       console.error('❌ Error deleting SQS message:', error);
       throw error;
@@ -192,12 +194,12 @@ class SQSWorker {
     try {
       console.log('🔄 Stopping SQS Worker...');
       this.isRunning = false;
-      
+
       if (this.pollingTimer) {
         clearTimeout(this.pollingTimer);
         this.pollingTimer = null;
       }
-      
+
       console.log('✅ SQS worker stopped');
     } catch (error) {
       console.error('❌ Error stopping SQS worker:', error);
@@ -221,7 +223,7 @@ class SQSWorker {
 
   async getWorkerStatus() {
     const attributes = await this.getQueueAttributes();
-    
+
     return {
       isRunning: this.isRunning,
       queueUrl: this.queueUrl,
@@ -264,7 +266,7 @@ async function main() {
   try {
     await sqsWorker.start();
     console.log('🎉 SQS Worker is running and ready to process messages!');
-    
+
     // Log queue status every 30 seconds
     setInterval(async () => {
       if (sqsWorker.isRunning) {
@@ -275,7 +277,7 @@ async function main() {
         });
       }
     }, 30000);
-    
+
   } catch (error) {
     console.error('💥 Failed to start SQS Worker:', error);
     process.exit(1);

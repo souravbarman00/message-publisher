@@ -1,3 +1,4 @@
+/* eslint-disable n/no-process-exit */
 import AWS from 'aws-sdk';
 import dotenv from 'dotenv';
 
@@ -32,10 +33,10 @@ class SNSWorker {
       console.log('🚀 Starting SNS Worker...');
       console.log(`📍 Topic ARN: ${this.topicArn || 'Not configured'}`);
       console.log(`⏱️  Poll Interval: ${this.pollInterval}ms`);
-      
+
       this.isRunning = true;
       await this.startMonitoring();
-      
+
       console.log('✅ SNS Worker started successfully');
     } catch (error) {
       console.error('❌ Error starting SNS worker:', error);
@@ -72,7 +73,7 @@ class SNSWorker {
       };
 
       const attributes = await this.sns.getTopicAttributes(params).promise();
-      
+
       // Log topic statistics occasionally
       if (Math.random() < 0.1) { // 10% chance to log
         console.log('📊 SNS Topic Status:', {
@@ -81,7 +82,7 @@ class SNSWorker {
           topicArn: this.topicArn.split(':').pop() // Just show the topic name
         });
       }
-      
+
     } catch (error) {
       console.error('❌ Error checking topic status:', error);
     }
@@ -93,7 +94,7 @@ class SNSWorker {
     // 2. Monitor delivery status
     // 3. Handle bounced emails or failed SMS
     // 4. Update delivery statistics
-    
+
     // For this demo, we'll simulate processing any queued notifications
     await this.simulateNotificationProcessing();
   }
@@ -105,7 +106,7 @@ class SNSWorker {
     // - Handling bounce notifications
     // - Processing subscription confirmations
     // - Updating delivery metrics
-    
+
     if (Math.random() < 0.3) { // 30% chance to simulate processing
       const mockNotification = {
         id: `notif-${Date.now()}`,
@@ -127,22 +128,22 @@ class SNSWorker {
       });
 
       switch (notification.type) {
-        case 'delivery-receipt':
-          await this.processDeliveryReceipt(notification);
-          break;
-        case 'bounce':
-          await this.processBounceNotification(notification);
-          break;
-        case 'complaint':
-          await this.processComplaintNotification(notification);
-          break;
-        default:
-          await this.processGenericNotification(notification);
+      case 'delivery-receipt':
+        await this.processDeliveryReceipt(notification);
+        break;
+      case 'bounce':
+        await this.processBounceNotification(notification);
+        break;
+      case 'complaint':
+        await this.processComplaintNotification(notification);
+        break;
+      default:
+        await this.processGenericNotification(notification);
       }
 
       // Store processed notification in history
       this.addToHistory(notification);
-      
+
       console.log(`✅ Successfully processed notification: ${notification.id}`);
 
     } catch (error) {
@@ -152,10 +153,10 @@ class SNSWorker {
 
   async processDeliveryReceipt(notification) {
     console.log('📬 Processing delivery receipt:', notification.status);
-    
+
     // Example: Update delivery statistics in database
     await this.simulateProcessing();
-    
+
     if (notification.status === 'delivered') {
       console.log('✅ Message delivery confirmed');
     } else {
@@ -164,29 +165,29 @@ class SNSWorker {
   }
 
   async processBounceNotification(notification) {
-    console.log('⚠️  Processing bounce notification');
-    
+    console.log('⚠️  Processing bounce notification', notification.status);
+
     // Example: Mark email as invalid, update subscriber status
     await this.simulateProcessing();
-    
+
     console.log('✅ Bounce notification processed');
   }
 
   async processComplaintNotification(notification) {
-    console.log('🚫 Processing complaint notification');
-    
+    console.log('🚫 Processing complaint notification',notification.status);
+
     // Example: Remove from mailing list, log complaint
     await this.simulateProcessing();
-    
+
     console.log('✅ Complaint notification processed');
   }
 
   async processGenericNotification(notification) {
-    console.log('🔄 Processing generic notification');
-    
+    console.log('🔄 Processing generic notification',notification.status);
+
     // Generic notification processing
     await this.simulateProcessing();
-    
+
     console.log('✅ Generic notification processed');
   }
 
@@ -228,12 +229,12 @@ class SNSWorker {
     try {
       console.log('🔄 Stopping SNS Worker...');
       this.isRunning = false;
-      
+
       if (this.pollingTimer) {
         clearTimeout(this.pollingTimer);
         this.pollingTimer = null;
       }
-      
+
       console.log('✅ SNS worker stopped');
     } catch (error) {
       console.error('❌ Error stopping SNS worker:', error);
@@ -242,7 +243,7 @@ class SNSWorker {
 
   async getWorkerStatus() {
     const subscriptions = await this.listSubscriptions();
-    
+
     return {
       isRunning: this.isRunning,
       topicArn: this.topicArn,
@@ -292,7 +293,7 @@ async function main() {
   try {
     await snsWorker.start();
     console.log('🎉 SNS Worker is running and ready to process notifications!');
-    
+
     // Log worker status every 60 seconds
     setInterval(async () => {
       if (snsWorker.isRunning) {
@@ -304,7 +305,7 @@ async function main() {
         });
       }
     }, 60000);
-    
+
   } catch (error) {
     console.error('💥 Failed to start SNS Worker:', error);
     process.exit(1);
