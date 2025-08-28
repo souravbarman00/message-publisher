@@ -38,7 +38,7 @@ class SQSWorker {
 
       console.log('✅ SQS Worker started successfully');
     } catch (error) {
-      console.error('❌ Error starting SQS workers:', error);
+      console.error('❌ Error starting SQS worker:', error);
       throw error;
     }
   }
