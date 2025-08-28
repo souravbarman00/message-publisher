@@ -1,6 +1,8 @@
 pipeline {
     agent any
-
+    tools {
+        nodejs "Node18"
+    }   
     environment {
         PROJECT_NAME = "message-publisher"
         SLACK_CHANNEL = '#jenkins-alerts'
