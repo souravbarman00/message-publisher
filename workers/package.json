@@ -9,9 +9,13 @@
     "start:sns": "node sns-worker.js",
     "start:all": "concurrently \"npm run start:kafka\" \"npm run start:sqs\" \"npm run start:sns\"",
     "dev:kafka": "nodemon kafka-worker.js",
-    "dev:sqs": "nodemon sqs-worker.js", 
+    "dev:sqs": "nodemon sqs-worker.js",
     "dev:sns": "nodemon sns-worker.js",
-    "dev:all": "concurrently \"npm run dev:kafka\" \"npm run dev:sqs\" \"npm run dev:sns\""
+    "dev:all": "concurrently \"npm run dev:kafka\" \"npm run dev:sqs\" \"npm run dev:sns\"",
+    "lint": "eslint . --ext .js --fix",
+    "lint:check": "eslint . --ext .js",
+    "lint:report": "eslint . --ext .js --format html --output-file eslint-reports/workers-eslint-report.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "kafkajs": "^2.2.4",
@@ -21,6 +25,9 @@
   },
   "devDependencies": {
     "nodemon": "^3.0.1",
-    "concurrently": "^8.2.0"
+    "concurrently": "^8.2.0",
+    "eslint": "^8.50.0",
+    "eslint-plugin-node": "^11.1.0",
+    "eslint-plugin-security": "^1.7.1"
   }
 }

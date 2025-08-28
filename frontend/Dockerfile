@@ -28,5 +28,13 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Expose port 80
 EXPOSE 80
 
+# Build metadata
+LABEL maintainer="Message Publisher Team"
+LABEL version="1.0.0"
+LABEL description="Message Publisher Frontend - React application for message publishing interface"
+LABEL build-date=${BUILD_DATE}
+LABEL vcs-url="https://github.com/your-org/message-publisher"
+LABEL vcs-ref=${VCS_REF}
+
 # Start nginx
 CMD ["nginx", "-g", "daemon off;"]
