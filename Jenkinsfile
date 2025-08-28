@@ -42,12 +42,18 @@ pipeline {
         stage('Prepare Folders') {
             steps {
                 bat '''
+                    REM Clean all node_modules directories  
                     if exist node_modules rmdir /s /q node_modules
-                    if exist backend\\api\\node_modules rmdir /s /q backend\\api\\node_modules
-                    if exist backend\\workers\\node_modules rmdir /s /q backend\\workers\\node_modules
+                    if exist api\\node_modules rmdir /s /q api\\node_modules
+                    if exist workers\\node_modules rmdir /s /q workers\\node_modules
                     if exist frontend\\node_modules rmdir /s /q frontend\\node_modules
-                    if not exist backend\\api\\logs mkdir backend\\api\\logs
-                    if not exist backend\\workers\\logs mkdir backend\\workers\\logs
+                    
+                    REM Clean npm cache
+                    npm cache clean --force
+                    
+                    REM Create necessary directories
+                    if not exist api\\logs mkdir api\\logs
+                    if not exist workers\\logs mkdir workers\\logs
                     if not exist frontend\\logs mkdir frontend\\logs
                     if not exist shared mkdir shared
                 '''
@@ -58,7 +64,7 @@ pipeline {
             parallel {
                 stage('API Dependencies') {
                     steps {
-                        dir('backend/api') {
+                        dir('api') {
                             bat '''
                                 if exist node_modules rmdir /s /q node_modules
                                 npm install --no-bin-links
@@ -68,7 +74,7 @@ pipeline {
                 }
                 stage('Workers Dependencies') {
                     steps {
-                        dir('backend/workers') {
+                        dir('workers') {
                             bat '''
                                 if exist node_modules rmdir /s /q node_modules
                                 npm install --no-bin-links
@@ -95,7 +101,7 @@ pipeline {
                     steps {
                         script {
                             try {
-                                dir('backend/api') {
+                                dir('api') {
                                     bat 'npm run lint'
                                 }
                             } catch (Exception e) {
@@ -103,7 +109,7 @@ pipeline {
                             }
                             
                             try {
-                                dir('backend/workers') {
+                                dir('workers') {
                                     bat 'npm run lint'
                                 }
                             } catch (Exception e) {
@@ -124,7 +130,7 @@ pipeline {
                     steps {
                         script {
                             try {
-                                dir('backend/api') {
+                                dir('api') {
                                     bat 'npm test'
                                     if (fileExists('test-results.xml')) {
                                         junit 'test-results.xml'
@@ -135,7 +141,7 @@ pipeline {
                             }
                             
                             try {
-                                dir('backend/workers') {
+                                dir('workers') {
                                     bat 'npm test'
                                     if (fileExists('test-results.xml')) {
                                         junit 'test-results.xml'
@@ -165,17 +171,17 @@ pipeline {
             parallel {
                 stage('API') {
                     steps {
-                        dir('backend/api') {
+                        dir('api') {
                             bat "docker build -t ${env.API_IMAGE} ."
-                            bat "docker save -o ..\\..\\shared\\${env.API_IMAGE.replace(':', '_')}.tar ${env.API_IMAGE}"
+                            bat "docker save -o ..\\shared\\${env.API_IMAGE.replace(':', '_')}.tar ${env.API_IMAGE}"
                         }
                     }
                 }
                 stage('Workers') {
                     steps {
-                        dir('backend/workers') {
+                        dir('workers') {
                             bat "docker build -t ${env.WORKERS_IMAGE} ."
-                            bat "docker save -o ..\\..\\shared\\${env.WORKERS_IMAGE.replace(':', '_')}.tar ${env.WORKERS_IMAGE}"
+                            bat "docker save -o ..\\shared\\${env.WORKERS_IMAGE.replace(':', '_')}.tar ${env.WORKERS_IMAGE}"
                         }
                     }
                 }
