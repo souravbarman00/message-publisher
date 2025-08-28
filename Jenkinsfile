@@ -1,7 +1,7 @@
 pipeline {
     agent any
     tools {
-        nodejs "Node18"
+        nodejs "node18"
     }   
     environment {
         PROJECT_NAME = "message-publisher"
