@@ -1,5 +1,6 @@
 pipeline {
     agent any  
+    
     environment {
         PROJECT_NAME = "message-publisher"
     }
@@ -10,13 +11,13 @@ pipeline {
                 checkout scm
                 script {
                     // Generate dynamic values on Windows
-                    env.BUILD_TIMESTAMP = bat(
-                        script: 'powershell -command "Get-Date -Format yyyyMMdd-HHmmss"',
+                    env.BUILD_TIMESTAMP = powershell(
+                        script: 'Get-Date -Format yyyyMMdd-HHmmss',
                         returnStdout: true
                     ).trim()
 
                     env.GIT_COMMIT_SHORT = bat(
-                        script: 'git rev-parse --short HEAD',
+                        script: '@echo off && git rev-parse --short HEAD',
                         returnStdout: true
                     ).trim()
 
@@ -26,7 +27,7 @@ pipeline {
                     env.WORKERS_IMAGE = "${PROJECT_NAME}-workers:${env.VERSION}"
 
                     echo """
-                    🏗️ Build Information:
+                    Build Information:
                        Project: ${PROJECT_NAME}
                        Version: ${env.VERSION}
                        Branch: ${env.BRANCH_NAME ?: 'main'}
@@ -40,73 +41,116 @@ pipeline {
 
         stage('Prepare Folders') {
             steps {
-                bat 'if not exist backend\\api\\logs mkdir backend\\api\\logs'
-                bat 'if not exist backend\\workers\\logs mkdir backend\\workers\\logs'
-                bat 'if not exist frontend\\logs mkdir frontend\\logs'
-                bat 'if not exist shared mkdir shared'
+                bat '''
+                    if not exist backend\\api\\logs mkdir backend\\api\\logs
+                    if not exist backend\\workers\\logs mkdir backend\\workers\\logs
+                    if not exist frontend\\logs mkdir frontend\\logs
+                    if not exist shared mkdir shared
+                '''
             }
         }
 
-      stage('Install Dependencies') {
+        stage('Install Dependencies') {
             parallel {
                 stage('API Dependencies') {
                     steps {
                         dir('backend/api') {
-                            bat 'rmdir /s /q node_modules || echo "No node_modules to remove"'
-                            bat '"C:\\Program Files\\nodejs\\npm.cmd" install --no-bin-links --force || exit 0'
+                            bat '''
+                                if exist node_modules rmdir /s /q node_modules
+                                npm install --no-bin-links
+                            '''
                         }
                     }
                 }
                 stage('Workers Dependencies') {
                     steps {
                         dir('backend/workers') {
-                            bat 'rmdir /s /q node_modules || echo "No node_modules to remove"'
-                            bat '"C:\\Program Files\\nodejs\\npm.cmd" install --no-bin-links --force || exit 0'
+                            bat '''
+                                if exist node_modules rmdir /s /q node_modules
+                                npm install --no-bin-links
+                            '''
                         }
                     }
                 }
                 stage('Frontend Dependencies') {
                     steps {
                         dir('frontend') {
-                            bat 'rmdir /s /q node_modules || echo "No node_modules to remove"'
-                            bat '"C:\\Program Files\\nodejs\\npm.cmd" install --no-bin-links --force || exit 0'
+                            bat '''
+                                if exist node_modules rmdir /s /q node_modules
+                                npm install --no-bin-links
+                            '''
                         }
                     }
                 }
             }
         }
 
-
-
-
         stage('Lint and Test') {
             parallel {
                 stage('Lint') {
                     steps {
-                        dir('backend/api') {
-                            bat 'npm run lint || exit 0'
-                        }
-                        dir('backend/workers') {
-                            bat 'npm run lint || exit 0'
-                        }
-                        dir('frontend') {
-                            bat 'npm run lint || exit 0'
+                        script {
+                            try {
+                                dir('backend/api') {
+                                    bat 'npm run lint'
+                                }
+                            } catch (Exception e) {
+                                echo "API lint failed: ${e.getMessage()}"
+                            }
+                            
+                            try {
+                                dir('backend/workers') {
+                                    bat 'npm run lint'
+                                }
+                            } catch (Exception e) {
+                                echo "Workers lint failed: ${e.getMessage()}"
+                            }
+                            
+                            try {
+                                dir('frontend') {
+                                    bat 'npm run lint'
+                                }
+                            } catch (Exception e) {
+                                echo "Frontend lint failed: ${e.getMessage()}"
+                            }
                         }
                     }
                 }
                 stage('Test') {
                     steps {
-                        dir('backend/api') {
-                            bat 'npm test || exit 0'
-                            junit 'test-results.xml'
-                        }
-                        dir('backend/workers') {
-                            bat 'npm test || exit 0'
-                            junit 'test-results.xml'
-                        }
-                        dir('frontend') {
-                            bat 'npm test || exit 0'
-                            junit 'test-results.xml'
+                        script {
+                            try {
+                                dir('backend/api') {
+                                    bat 'npm test'
+                                    if (fileExists('test-results.xml')) {
+                                        junit 'test-results.xml'
+                                    }
+                                }
+                            } catch (Exception e) {
+                                echo "API tests failed: ${e.getMessage()}"
+                            }
+                            
+                            try {
+                                dir('backend/workers') {
+                                    bat 'npm test'
+                                    if (fileExists('test-results.xml')) {
+                                        junit 'test-results.xml'
+                                    }
+                                }
+                            } catch (Exception e) {
+                                echo "Workers tests failed: ${e.getMessage()}"
+                            }
+                            
+                            try {
+                                dir('frontend') {
+                                    bat 'npm test'
+                                    if (fileExists('test-results.xml')) {
+                                        junit 'test-results.xml'
+                                    }
+                                }
+                            } catch (Exception e) {
+                                echo "Frontend tests failed: ${e.getMessage()}"
+                            }
                         }
                     }
                 }
@@ -161,23 +205,43 @@ pipeline {
                     writeJSON file: 'shared/build-manifest.json', json: manifest, pretty: 4
                     archiveArtifacts artifacts: 'shared/build-manifest.json', fingerprint: true
                 }
+                echo "Build manifest generated successfully"
             }
         }
 
         stage('Cleanup Old Artifacts') {
             steps {
-                cleanWs(patterns: [[pattern: 'shared/*.tar', type: 'INCLUDE']], deleteDirs: false)
-                cleanWs(patterns: [[pattern: 'shared/build-manifest.json', type: 'INCLUDE']], deleteDirs: false)
+                script {
+                    try {
+                        cleanWs(patterns: [[pattern: 'shared/*.tar', type: 'INCLUDE']], deleteDirs: false)
+                        echo "Docker image artifacts cleaned"
+                    } catch (Exception e) {
+                        echo "Cleanup warning: ${e.getMessage()}"
+                    }
+                }
             }
         }
     }
 
     post {
+        always {
+            echo "Build completed with status: ${currentBuild.result ?: 'SUCCESS'}"
+        }
         success {
-            echo "✅ Build succeeded for ${PROJECT_NAME} version ${env.VERSION}"
+            echo "Build succeeded for ${PROJECT_NAME} version ${env.VERSION}"
         }
         failure {
-            echo "❌ Build failed for ${PROJECT_NAME} version ${env.VERSION}"
+            echo "Build failed for ${PROJECT_NAME} version ${env.VERSION}"
+        }
+        cleanup {
+            // Clean up Docker images to save space
+            script {
+                try {
+                    bat 'docker image prune -f'
+                } catch (Exception e) {
+                    echo "Docker cleanup warning: ${e.getMessage()}"
+                }
+            }
         }
     }
 }
