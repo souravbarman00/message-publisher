@@ -2,35 +2,33 @@ pipeline {
     agent any
 
     environment {
-        PROJECT_NAME = 'message-publisher'
-        DOCKER_IMAGES_PATH = "C:/jenkins/docker-images"
-    }
-
-    options {
-        buildDiscarder(logRotator(numToKeepStr: '10'))
-        timeout(time: 30, unit: 'MINUTES')
-        timestamps()
-        skipDefaultCheckout()
+        PROJECT_NAME = "message-publisher"
+        SLACK_CHANNEL = '#jenkins-alerts'
     }
 
     stages {
         stage('Checkout') {
             steps {
-                echo "🔄 Checking out code..."
-                cleanWs()
                 checkout scm
-
                 script {
-                    env.BUILD_TIMESTAMP = bat(script: 'for /f "tokens=*" %i in (\'powershell -command "Get-Date -Format yyyyMMdd-HHmmss"\') do @echo %i', returnStdout: true).trim()
-                    env.GIT_COMMIT_SHORT = bat(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    env.VERSION = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}-${env.BUILD_TIMESTAMP}"
+                    // Generate dynamic values on Windows
+                    env.BUILD_TIMESTAMP = bat(
+                        script: 'powershell -command "Get-Date -Format yyyyMMdd-HHmmss"',
+                        returnStdout: true
+                    ).trim()
 
+                    env.GIT_COMMIT_SHORT = bat(
+                        script: 'git rev-parse --short HEAD',
+                        returnStdout: true
+                    ).trim()
+
+                    env.VERSION = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}-${env.BUILD_TIMESTAMP}"
                     env.API_IMAGE = "${PROJECT_NAME}-api:${env.VERSION}"
                     env.FRONTEND_IMAGE = "${PROJECT_NAME}-frontend:${env.VERSION}"
                     env.WORKERS_IMAGE = "${PROJECT_NAME}-workers:${env.VERSION}"
 
                     echo """
-                    🏗️  Build Information:
+                    🏗️ Build Information:
                        Project: ${PROJECT_NAME}
                        Version: ${env.VERSION}
                        Branch: ${env.BRANCH_NAME ?: 'main'}
@@ -42,148 +40,154 @@ pipeline {
             }
         }
 
-        stage('Setup Environment') {
+        stage('Prepare Folders') {
             steps {
-                echo "🔧 Setting up build environment..."
-                bat """
-                    if not exist ${DOCKER_IMAGES_PATH}\\api mkdir ${DOCKER_IMAGES_PATH}\\api
-                    if not exist ${DOCKER_IMAGES_PATH}\\frontend mkdir ${DOCKER_IMAGES_PATH}\\frontend
-                    if not exist ${DOCKER_IMAGES_PATH}\\workers mkdir ${DOCKER_IMAGES_PATH}\\workers
-                    if not exist ${DOCKER_IMAGES_PATH}\\manifests mkdir ${DOCKER_IMAGES_PATH}\\manifests
-                """
-                bat "node --version && npm --version"
+                bat 'if not exist backend\\api\\logs mkdir backend\\api\\logs'
+                bat 'if not exist backend\\workers\\logs mkdir backend\\workers\\logs'
+                bat 'if not exist frontend\\logs mkdir frontend\\logs'
+                bat 'if not exist shared mkdir shared'
             }
         }
 
         stage('Install Dependencies') {
             parallel {
-                stage('Root Dependencies') {
-                    steps { bat 'npm ci --only=production || exit /b 0' }
-                }
                 stage('API Dependencies') {
-                    steps { dir('api') { bat 'npm ci' } }
-                }
-                stage('Frontend Dependencies') {
-                    steps { dir('frontend') { bat 'npm ci' } }
+                    steps {
+                        dir('backend/api') {
+                            bat 'npm install'
+                        }
+                    }
                 }
                 stage('Workers Dependencies') {
-                    steps { dir('workers') { bat 'npm ci' } }
+                    steps {
+                        dir('backend/workers') {
+                            bat 'npm install'
+                        }
+                    }
+                }
+                stage('Frontend Dependencies') {
+                    steps {
+                        dir('frontend') {
+                            bat 'npm install'
+                        }
+                    }
                 }
             }
         }
 
-        stage('Build & Test') {
+        stage('Lint and Test') {
             parallel {
-                stage('Build API') {
-                    steps { dir('api') { bat 'npm run build || echo No build script' } }
-                }
-                stage('Build Frontend') {
-                    steps { dir('frontend') { bat 'npm run build' } }
-                }
-                stage('Test API') {
-                    steps { dir('api') { bat 'npm test || echo No tests defined' } }
-                    post {
-                        always {
-                            script {
-                                if (fileExists('api/test-results.xml')) {
-                                    junit 'api/test-results.xml'
-                                }
-                            }
+                stage('Lint') {
+                    steps {
+                        dir('backend/api') {
+                            bat 'npm run lint || exit 0'
+                        }
+                        dir('backend/workers') {
+                            bat 'npm run lint || exit 0'
+                        }
+                        dir('frontend') {
+                            bat 'npm run lint || exit 0'
                         }
                     }
                 }
-                stage('Test Frontend') {
-                    steps { dir('frontend') { bat 'npm test -- --coverage --watchAll=false || echo No tests defined' } }
-                    post {
-                        always {
-                            script {
-                                if (fileExists('frontend/coverage/lcov-report/index.html')) {
-                                    publishHTML([
-                                        reportDir: 'frontend/coverage/lcov-report',
-                                        reportFiles: 'index.html',
-                                        reportName: 'Frontend Coverage Report'
-                                    ])
-                                }
-                            }
+                stage('Test') {
+                    steps {
+                        dir('backend/api') {
+                            bat 'npm test || exit 0'
+                            junit 'test-results.xml'
+                        }
+                        dir('backend/workers') {
+                            bat 'npm test || exit 0'
+                            junit 'test-results.xml'
+                        }
+                        dir('frontend') {
+                            bat 'npm test || exit 0'
+                            junit 'test-results.xml'
                         }
                     }
                 }
             }
         }
 
-        stage('Docker Image Creation') {
+        stage('Build Docker Images') {
             parallel {
-                stage('Build API Image') {
+                stage('API') {
                     steps {
-                        script {
-                            bat "docker build -t ${env.API_IMAGE} -f api/Dockerfile api"
-                            bat "docker save -o ${DOCKER_IMAGES_PATH}/api/${env.API_IMAGE}.tar ${env.API_IMAGE}"
+                        dir('backend/api') {
+                            bat "docker build -t ${env.API_IMAGE} ."
+                            bat "docker save -o ..\\..\\shared\\${env.API_IMAGE.replace(':', '_')}.tar ${env.API_IMAGE}"
                         }
                     }
                 }
-                stage('Build Frontend Image') {
+                stage('Workers') {
                     steps {
-                        script {
-                            bat "docker build -t ${env.FRONTEND_IMAGE} -f frontend/Dockerfile frontend"
-                            bat "docker save -o ${DOCKER_IMAGES_PATH}/frontend/${env.FRONTEND_IMAGE}.tar ${env.FRONTEND_IMAGE}"
+                        dir('backend/workers') {
+                            bat "docker build -t ${env.WORKERS_IMAGE} ."
+                            bat "docker save -o ..\\..\\shared\\${env.WORKERS_IMAGE.replace(':', '_')}.tar ${env.WORKERS_IMAGE}"
                         }
                     }
                 }
-                stage('Build Workers Image') {
+                stage('Frontend') {
                     steps {
-                        script {
-                            bat "docker build -t ${env.WORKERS_IMAGE} -f workers/Dockerfile workers"
-                            bat "docker save -o ${DOCKER_IMAGES_PATH}/workers/${env.WORKERS_IMAGE}.tar ${env.WORKERS_IMAGE}"
+                        dir('frontend') {
+                            bat "docker build -t ${env.FRONTEND_IMAGE} ."
+                            bat "docker save -o ..\\shared\\${env.FRONTEND_IMAGE.replace(':', '_')}.tar ${env.FRONTEND_IMAGE}"
                         }
                     }
                 }
             }
         }
 
-        stage('Image Versioning & Manifest') {
+        stage('Generate Build Manifest') {
             steps {
                 script {
                     def manifest = [
-                        build: [
-                            number: env.BUILD_NUMBER,
-                            timestamp: env.BUILD_TIMESTAMP,
-                            version: env.VERSION,
-                            commit: env.GIT_COMMIT_SHORT,
-                            branch: env.BRANCH_NAME ?: 'main'
-                        ],
-                        images: [
-                            api: [
-                                name: env.API_IMAGE,
-                                file: "${DOCKER_IMAGES_PATH}/api/${env.API_IMAGE}.tar"
-                            ],
-                            frontend: [
-                                name: env.FRONTEND_IMAGE,
-                                file: "${DOCKER_IMAGES_PATH}/frontend/${env.FRONTEND_IMAGE}.tar"
-                            ],
-                            workers: [
-                                name: env.WORKERS_IMAGE,
-                                file: "${DOCKER_IMAGES_PATH}/workers/${env.WORKERS_IMAGE}.tar"
-                            ]
+                        project   : PROJECT_NAME,
+                        version   : env.VERSION,
+                        branch    : env.BRANCH_NAME ?: 'main',
+                        commit    : env.GIT_COMMIT_SHORT,
+                        timestamp : env.BUILD_TIMESTAMP,
+                        buildNumber: env.BUILD_NUMBER,
+                        artifacts : [
+                            api     : "${env.API_IMAGE}",
+                            workers : "${env.WORKERS_IMAGE}",
+                            frontend: "${env.FRONTEND_IMAGE}"
                         ]
                     ]
-                    writeJSON file: "${DOCKER_IMAGES_PATH}/manifests/build-${env.VERSION}.json", json: manifest, pretty: 4
-                    bat "copy /Y ${DOCKER_IMAGES_PATH}\\manifests\\build-${env.VERSION}.json ${DOCKER_IMAGES_PATH}\\manifests\\latest.json"
-                    bat "docker tag ${env.API_IMAGE} ${PROJECT_NAME}-api:latest"
-                    bat "docker tag ${env.FRONTEND_IMAGE} ${PROJECT_NAME}-frontend:latest"
-                    bat "docker tag ${env.WORKERS_IMAGE} ${PROJECT_NAME}-workers:latest"
+                    writeJSON file: 'shared/build-manifest.json', json: manifest, pretty: 4
+                    archiveArtifacts artifacts: 'shared/build-manifest.json', fingerprint: true
                 }
+            }
+        }
+
+        stage('Cleanup Old Artifacts') {
+            steps {
+                cleanWs(patterns: [[pattern: 'shared/*.tar', type: 'INCLUDE']], deleteDirs: false)
+                cleanWs(patterns: [[pattern: 'shared/build-manifest.json', type: 'INCLUDE']], deleteDirs: false)
             }
         }
     }
 
     post {
-        always {
-            archiveArtifacts artifacts: """
-                ${DOCKER_IMAGES_PATH}/manifests/build-${env.VERSION}.json,
-                eslint-reports/**/*,
-                frontend/coverage/**/*,
-                api/test-results.xml
-            """, allowEmptyArchive: true
+        success {
+            script {
+                try {
+                    slackSend(channel: SLACK_CHANNEL, color: 'good',
+                        message: "✅ Build succeeded for *${PROJECT_NAME}* version *${env.VERSION}* (<${env.BUILD_URL}|Open>)")
+                } catch (err) {
+                    echo "Slack not configured, skipping notification"
+                }
+            }
+        }
+        failure {
+            script {
+                try {
+                    slackSend(channel: SLACK_CHANNEL, color: 'danger',
+                        message: "❌ Build failed for *${PROJECT_NAME}* version *${env.VERSION}* (<${env.BUILD_URL}|Open>)")
+                } catch (err) {
+                    echo "Slack not configured, skipping notification"
+                }
+            }
         }
     }
 }
