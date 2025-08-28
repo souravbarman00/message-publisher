@@ -42,6 +42,10 @@ pipeline {
         stage('Prepare Folders') {
             steps {
                 bat '''
+                    if exist node_modules rmdir /s /q node_modules
+                    if exist backend\\api\\node_modules rmdir /s /q backend\\api\\node_modules
+                    if exist backend\\workers\\node_modules rmdir /s /q backend\\workers\\node_modules
+                    if exist frontend\\node_modules rmdir /s /q frontend\\node_modules
                     if not exist backend\\api\\logs mkdir backend\\api\\logs
                     if not exist backend\\workers\\logs mkdir backend\\workers\\logs
                     if not exist frontend\\logs mkdir frontend\\logs
