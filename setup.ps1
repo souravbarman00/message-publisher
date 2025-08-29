@@ -1,6 +1,7 @@
 # Message Publisher Development Setup Script for PowerShell
 # This script helps you set up and run the message publisher system
 
+
 param(
     [string]$Command = "setup"
 )
