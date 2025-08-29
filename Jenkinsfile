@@ -223,7 +223,7 @@ pipeline {
             }
         }
 
-       stage('Deploy to Kubernetes') {
+       stage('Deploy to Kubernetes & Update ArgoCD') {
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig-kind', variable: 'KUBECONFIG')]) {
                     script {
@@ -232,27 +232,45 @@ pipeline {
                                 script: 'kubectl config current-context',
                                 returnStdout: true
                             ).trim()
-                            
                             echo "Using Kubernetes context: ${currentContext}"
-                            
+
+                            // Kubernetes deployments
                             bat 'kubectl get nodes'
                             bat 'kubectl apply -f k8s/api-deployment.yaml -n message-publisher'
                             bat 'kubectl apply -f k8s/workers-deployment.yaml -n message-publisher'
                             bat 'kubectl apply -f k8s/frontend-deployment.yaml -n message-publisher'
-                            
+
                             bat 'kubectl rollout status deployment/message-publisher-api -n message-publisher --timeout=300s'
                             bat 'kubectl rollout status deployment/message-publisher-workers -n message-publisher --timeout=300s'
                             bat 'kubectl rollout status deployment/message-publisher-frontend -n message-publisher --timeout=300s'
-                            
+
                             bat 'kubectl get pods -n message-publisher'
+
+                            // ArgoCD application
+                            def appExists = bat(
+                                script: 'kubectl get application message-publisher-app -n argocd',
+                                returnStatus: true
+                            )
+
+                            if (appExists == 0) {
+                                echo "ArgoCD application exists, triggering sync..."
+                                bat 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"main\\"}}}" --type merge'
+                            } else {
+                                echo "Creating ArgoCD application..."
+                                bat 'kubectl apply -f k8s/argocd-application.yaml'
+                            }
+
+                            echo "Kubernetes and ArgoCD update completed successfully"
+
                         } catch (Exception e) {
-                            echo "Kubernetes deployment failed: ${e.getMessage()}"
+                            echo "Deployment failed: ${e.getMessage()}"
                             currentBuild.result = 'UNSTABLE'
                         }
                     }
                 }
             }
         }
+
         stage('Update ArgoCD Application') {
             steps {
                 script {
