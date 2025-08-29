@@ -279,32 +279,30 @@ pipeline {
 
         stage('Update ArgoCD Application') {
             steps {
-                script {
-                    try {
-                        // Check if ArgoCD application exists
-                        def appExists = bat(
-                            script: 'kubectl get application message-publisher-app -n argocd',
-                            returnStatus: true
-                        )
-                        
-                        if (appExists == 0) {
-                            echo "ArgoCD application exists, triggering sync..."
-                            // Trigger ArgoCD sync via kubectl
-                            bat 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"main\\"}}}" --type merge'
-                        } else {
-                            echo "Creating ArgoCD application..."
-                            bat 'kubectl apply -f k8s/argocd-application.yaml'
+                withCredentials([file(credentialsId: 'kubeconfig-kind', variable: 'KUBECONFIG')]) {
+                    script {
+                        try {
+                            def appExists = bat(
+                                script: 'kubectl get application message-publisher-app -n argocd',
+                                returnStatus: true
+                            )
+                            
+                            if (appExists == 0) {
+                                echo "ArgoCD application exists, triggering sync..."
+                                bat 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"main\\"}}}" --type merge'
+                            } else {
+                                echo "Creating ArgoCD application..."
+                                bat 'kubectl apply -f k8s/argocd-application.yaml --validate=false'
+                            }
+                            
+                        } catch (Exception e) {
+                            echo "ArgoCD update failed: ${e.getMessage()}"
                         }
-                        
-                        echo "ArgoCD application updated successfully"
-                        
-                    } catch (Exception e) {
-                        echo "ArgoCD update failed: ${e.getMessage()}"
-                        echo "You can manually sync the application in ArgoCD UI"
                     }
                 }
             }
         }
+
 
         stage('Cleanup Old Artifacts') {
             steps {
