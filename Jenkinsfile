@@ -173,6 +173,7 @@ pipeline {
                     steps {
                         dir('api') {
                             bat "docker build -t ${env.API_IMAGE} ."
+                            bat "docker tag ${env.API_IMAGE} ${PROJECT_NAME}-api:latest"
                             bat "docker save -o ..\\shared\\${env.API_IMAGE.replace(':', '_')}.tar ${env.API_IMAGE}"
                         }
                     }
@@ -181,6 +182,7 @@ pipeline {
                     steps {
                         dir('workers') {
                             bat "docker build -t ${env.WORKERS_IMAGE} ."
+                            bat "docker tag ${env.WORKERS_IMAGE} ${PROJECT_NAME}-workers:latest"
                             bat "docker save -o ..\\shared\\${env.WORKERS_IMAGE.replace(':', '_')}.tar ${env.WORKERS_IMAGE}"
                         }
                     }
@@ -189,7 +191,47 @@ pipeline {
                     steps {
                         dir('frontend') {
                             bat "docker build -t ${env.FRONTEND_IMAGE} ."
+                            bat "docker tag ${env.FRONTEND_IMAGE} ${PROJECT_NAME}-frontend:latest"
                             bat "docker save -o ..\\shared\\${env.FRONTEND_IMAGE.replace(':', '_')}.tar ${env.FRONTEND_IMAGE}"
+                        }
+                    }
+                }
+            }
+        }
+
+        // NEW STAGE: Load images into Kind cluster
+        stage('Load Images into Kind') {
+            steps {
+                script {
+                    try {
+                        // Load the latest tagged images into kind cluster
+                        bat "kind load docker-image ${PROJECT_NAME}-api:latest --name message-publisher"
+                        bat "kind load docker-image ${PROJECT_NAME}-frontend:latest --name message-publisher"
+                        bat "kind load docker-image ${PROJECT_NAME}-workers:latest --name message-publisher"
+                        echo "Images loaded into Kind cluster successfully"
+                    } catch (Exception e) {
+                        echo "Failed to load images into Kind: ${e.getMessage()}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
+
+        // NEW STAGE: Update Kubernetes deployments with correct image tags
+        stage('Update Deployment Images') {
+            steps {
+                withCredentials([file(credentialsId: 'kubeconfig-kind', variable: 'KUBECONFIG')]) {
+                    script {
+                        try {
+                            // Update deployment image tags to use latest
+                            bat """
+                                kubectl set image deployment/message-publisher-api api=${PROJECT_NAME}-api:latest -n message-publisher
+                                kubectl set image deployment/message-publisher-frontend frontend=${PROJECT_NAME}-frontend:latest -n message-publisher
+                                kubectl set image deployment/message-publisher-workers workers=${PROJECT_NAME}-workers:latest -n message-publisher
+                            """
+                            echo "Deployment images updated successfully"
+                        } catch (Exception e) {
+                            echo "Failed to update deployment images: ${e.getMessage()}"
                         }
                     }
                 }
@@ -302,7 +344,6 @@ pipeline {
                 }
             }
         }
-
 
         stage('Cleanup Old Artifacts') {
             steps {
