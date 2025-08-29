@@ -14,7 +14,6 @@ class KafkaService {
       }
     };
 
-    // Add SASL config if credentials are provided
     if (process.env.KAFKA_SASL_USERNAME && process.env.KAFKA_SASL_PASSWORD) {
       kafkaConfig.sasl = {
         mechanism: 'plain',
