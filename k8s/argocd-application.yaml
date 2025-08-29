@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: message-publisher-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/souravbarman00/message-publisher  # Update with your actual repo URL
+    targetRevision: main
+    path: k8s
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: message-publisher
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
