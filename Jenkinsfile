@@ -223,6 +223,11 @@ pipeline {
             }
         }
 
+        stage('Test Kubectl') {
+            steps {
+                bat 'kubectl get nodes --kubeconfig C:\\Jenkins\\.kube\\config'
+            }
+
        stage('Deploy to Kubernetes & Update ArgoCD') {
             steps {
                 withCredentials([file(credentialsId: 'kubeconfig-kind', variable: 'KUBECONFIG')]) {
