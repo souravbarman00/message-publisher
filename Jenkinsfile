@@ -30,7 +30,7 @@ pipeline {
                     Build Information:
                        Project: ${PROJECT_NAME}
                        Version: ${env.VERSION}
-                       Branch: ${env.BRANCH_NAME ?: 'main'}
+                       Branch: ${env.BRANCH_NAME ?: 'master'}
                        Commit: ${env.GIT_COMMIT_SHORT}
                        Timestamp: ${env.BUILD_TIMESTAMP}
                        Build Number: ${env.BUILD_NUMBER}
@@ -202,7 +202,7 @@ pipeline {
                     def manifest = [
                         project   : PROJECT_NAME,
                         version   : env.VERSION,
-                        branch    : env.BRANCH_NAME ?: 'main',
+                        branch    : env.BRANCH_NAME ?: 'master',
                         commit    : env.GIT_COMMIT_SHORT,
                         timestamp : env.BUILD_TIMESTAMP,
                         buildNumber: env.BUILD_NUMBER,
@@ -260,7 +260,7 @@ pipeline {
 
                             if (appExists == 0) {
                                 echo "ArgoCD application exists, triggering sync..."
-                                bat 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"main\\"}}}" --type merge'
+                                bat 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"master\\"}}}" --type merge'
                             } else {
                                 echo "Creating ArgoCD application..."
                                 bat 'kubectl apply -f k8s/argocd-application.yaml'
@@ -289,7 +289,7 @@ pipeline {
                             
                             if (appExists == 0) {
                                 echo "ArgoCD application exists, triggering sync..."
-                                bat 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"main\\"}}}" --type merge'
+                                bat 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"master\\"}}}" --type merge'
                             } else {
                                 echo "Creating ArgoCD application..."
                                 bat 'kubectl apply -f k8s/argocd-application.yaml --validate=false'

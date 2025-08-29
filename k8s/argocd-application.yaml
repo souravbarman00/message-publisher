@@ -6,8 +6,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: https://github.com/souravbarman00/message-publisher  # Update with your actual repo URL
-    targetRevision: main
+    repoURL: https://github.com/souravbarman00/message-publisher
+    targetRevision: master  # Changed from 'main' to 'master'
     path: k8s
   destination:
     server: https://kubernetes.default.svc
