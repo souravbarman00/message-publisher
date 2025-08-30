@@ -397,7 +397,7 @@ pipeline {
                             """
                         }
                         
-                        // Try to load into local K8s cluster (works for kind, Docker Desktop)
+                        // Load into local K8s cluster (kind or Docker Desktop)
                         try {
                             if (isUnix()) {
                                 def result = sh(script: 'kubectl config current-context', returnStdout: true).trim()
@@ -413,7 +413,34 @@ pipeline {
                             } else {
                                 def result = bat(script: '@echo off && kubectl config current-context', returnStdout: true).trim()
                                 echo "Current K8s context: ${result}"
-                                // For Docker Desktop on Windows, images are already available
+                                // Load into kind cluster on Windows
+                                if (result.contains('kind')) {
+                                    // Check if kind is available
+                                    def kindCheck = bat(script: 'where kind', returnStatus: true)
+                                    if (kindCheck != 0) {
+                                        echo "Kind CLI not found. Installing Kind..."
+                                        bat '''
+                                            curl.exe -Lo kind-windows-amd64.exe https://github.com/kubernetes-sigs/kind/releases/latest/download/kind-windows-amd64
+                                            mkdir C:\\\\tools 2>nul || echo Directory exists
+                                            move kind-windows-amd64.exe C:\\\\tools\\\\kind.exe
+                                        '''
+                                    }
+                                    // Load images into kind cluster
+                                    try {
+                                        bat '''
+                                            set PATH=%PATH%;C:\\\\tools
+                                            kind load docker-image message-publisher-api:latest --name message-publisher
+                                            kind load docker-image message-publisher-frontend:latest --name message-publisher  
+                                            kind load docker-image message-publisher-workers:latest --name message-publisher
+                                        '''
+                                        echo "Images successfully loaded into Kind cluster"
+                                    } catch (Exception kindErr) {
+                                        echo "Kind load failed: ${kindErr.getMessage()}"
+                                        echo "Images are loaded locally, will use imagePullPolicy: Never"
+                                    }
+                                } else {
+                                    echo "Docker Desktop K8s detected - images already available"
+                                }
                             }
                             echo "Images available in local K8s cluster"
                         } catch (Exception k8sErr) {
@@ -665,7 +692,11 @@ pipeline {
             // Clean up Docker images to save space
             script {
                 try {
-                    sh 'docker image prune -f'
+                    if (isUnix()) {
+                        sh 'docker image prune -f'
+                    } else {
+                        bat 'docker image prune -f'
+                    }
                 } catch (Exception e) {
                     echo "Docker cleanup warning: ${e.getMessage()}"
                 }
