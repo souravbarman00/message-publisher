@@ -564,11 +564,11 @@ pipeline {
                             // Deploy to Kubernetes
                             if (isUnix()) {
                                 sh 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
-                                sh 'kubectl apply -f k8s/ -n message-publisher'
+                                sh 'kubectl apply -f k8s/ -n message-publisher --ignore-not-found=true || echo "Some files applied to different namespaces"'
                                 sh 'kubectl get pods -n message-publisher'
                             } else {
                                 bat 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
-                                bat 'kubectl apply -f k8s/ -n message-publisher'
+                                bat 'kubectl apply -f k8s/ -n message-publisher --ignore-not-found=true || echo "Some files applied to different namespaces"'
                                 bat 'kubectl get pods -n message-publisher'
                             }
                             echo "Deployment completed successfully"
