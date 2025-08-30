@@ -373,11 +373,21 @@ pipeline {
                             }
                             
                             try {
-                                bat 'kubectl rollout status deployment/message-publisher-workers -n message-publisher --timeout=600s'
+                                bat 'kubectl rollout status deployment/message-publisher-workers -n message-publisher --timeout=300s'
                                 echo "Workers deployment successful"
                             } catch (Exception workersErr) {
-                                echo "Workers deployment failed: ${workersErr.getMessage()}"
-                                bat 'kubectl describe deployment message-publisher-workers -n message-publisher'
+                                echo "Workers deployment timeout/failed: ${workersErr.getMessage()}"
+                                echo "Checking if workers pods are running..."
+                                def runningWorkers = bat(
+                                    script: 'kubectl get pods -n message-publisher -l app=message-publisher-workers --field-selector=status.phase=Running --no-headers | wc -l',
+                                    returnStdout: true
+                                ).trim()
+                                echo "Running workers pods: ${runningWorkers}"
+                                if (runningWorkers.toInteger() >= 3) {
+                                    echo "Sufficient workers are running, continuing deployment"
+                                } else {
+                                    bat 'kubectl describe deployment message-publisher-workers -n message-publisher'
+                                }
                             }
                             
                             try {

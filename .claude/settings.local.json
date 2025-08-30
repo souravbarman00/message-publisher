@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(kubectl patch:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
