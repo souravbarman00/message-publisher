@@ -1,5 +1,5 @@
 pipeline {
-    agent any  
+    agent { label 'local-k8s' }  
     
     environment {
         PROJECT_NAME = "message-publisher"
@@ -10,16 +10,28 @@ pipeline {
             steps {
                 checkout scm
                 script {
-                    // Generate dynamic values on Linux
-                    env.BUILD_TIMESTAMP = sh(
-                        script: 'date +%Y%m%d-%H%M%S',
-                        returnStdout: true
-                    ).trim()
-
-                    env.GIT_COMMIT_SHORT = sh(
-                        script: 'git rev-parse --short HEAD',
-                        returnStdout: true
-                    ).trim()
+                    // Generate dynamic values cross-platform
+                    if (isUnix()) {
+                        env.BUILD_TIMESTAMP = sh(
+                            script: 'date +%Y%m%d-%H%M%S',
+                            returnStdout: true
+                        ).trim()
+                        
+                        env.GIT_COMMIT_SHORT = sh(
+                            script: 'git rev-parse --short HEAD',
+                            returnStdout: true
+                        ).trim()
+                    } else {
+                        env.BUILD_TIMESTAMP = bat(
+                            script: '@echo off && powershell -Command "Get-Date -Format yyyyMMdd-HHmmss"',
+                            returnStdout: true
+                        ).trim()
+                        
+                        env.GIT_COMMIT_SHORT = bat(
+                            script: '@echo off && git rev-parse --short HEAD',
+                            returnStdout: true
+                        ).trim()
+                    }
 
                     env.VERSION = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}-${env.BUILD_TIMESTAMP}"
                     env.API_IMAGE = "${PROJECT_NAME}-api:${env.VERSION}"
@@ -41,22 +53,43 @@ pipeline {
 
         stage('Prepare Folders') {
             steps {
-                sh '''
-                    # Clean all node_modules directories  
-                    rm -rf node_modules
-                    rm -rf api/node_modules
-                    rm -rf workers/node_modules
-                    rm -rf frontend/node_modules
-                    
-                    # Clean npm cache
-                    npm cache clean --force
-                    
-                    # Create necessary directories
-                    mkdir -p api/logs
-                    mkdir -p workers/logs
-                    mkdir -p frontend/logs
-                    mkdir -p shared
-                '''
+                script {
+                    if (isUnix()) {
+                        sh '''
+                            # Clean all node_modules directories  
+                            rm -rf node_modules
+                            rm -rf api/node_modules
+                            rm -rf workers/node_modules
+                            rm -rf frontend/node_modules
+                            
+                            # Clean npm cache
+                            npm cache clean --force
+                            
+                            # Create necessary directories
+                            mkdir -p api/logs
+                            mkdir -p workers/logs
+                            mkdir -p frontend/logs
+                            mkdir -p shared
+                        '''
+                    } else {
+                        bat '''
+                            REM Clean all node_modules directories  
+                            if exist node_modules rmdir /s /q node_modules
+                            if exist api\\node_modules rmdir /s /q api\\node_modules
+                            if exist workers\\node_modules rmdir /s /q workers\\node_modules
+                            if exist frontend\\node_modules rmdir /s /q frontend\\node_modules
+                            
+                            REM Clean npm cache
+                            npm cache clean --force
+                            
+                            REM Create necessary directories
+                            if not exist api\\logs mkdir api\\logs
+                            if not exist workers\\logs mkdir workers\\logs
+                            if not exist frontend\\logs mkdir frontend\\logs
+                            if not exist shared mkdir shared
+                        '''
+                    }
+                }
             }
         }
 
@@ -70,10 +103,19 @@ pipeline {
                                 def success = false
                                 for (int i = 0; i < retries && !success; i++) {
                                     try {
-                                        sh '''
-                                            rm -rf node_modules
-                                            npm install --timeout=300000 --registry=https://registry.npmjs.org/
-                                        '''
+                                        script {
+                                            if (isUnix()) {
+                                                sh '''
+                                                    rm -rf node_modules
+                                                    npm install --timeout=300000 --registry=https://registry.npmjs.org/
+                                                '''
+                                            } else {
+                                                bat '''
+                                                    if exist node_modules rmdir /s /q node_modules
+                                                    npm install --timeout=300000 --registry=https://registry.npmjs.org/
+                                                '''
+                                            }
+                                        }
                                         success = true
                                     } catch (Exception e) {
                                         echo "API npm install attempt ${i+1} failed: ${e.getMessage()}"
@@ -93,10 +135,19 @@ pipeline {
                                 def success = false
                                 for (int i = 0; i < retries && !success; i++) {
                                     try {
-                                        sh '''
-                                            rm -rf node_modules
-                                            npm install --timeout=300000 --registry=https://registry.npmjs.org/
-                                        '''
+                                        script {
+                                            if (isUnix()) {
+                                                sh '''
+                                                    rm -rf node_modules
+                                                    npm install --timeout=300000 --registry=https://registry.npmjs.org/
+                                                '''
+                                            } else {
+                                                bat '''
+                                                    if exist node_modules rmdir /s /q node_modules
+                                                    npm install --timeout=300000 --registry=https://registry.npmjs.org/
+                                                '''
+                                            }
+                                        }
                                         success = true
                                     } catch (Exception e) {
                                         echo "Workers npm install attempt ${i+1} failed: ${e.getMessage()}"
@@ -116,10 +167,19 @@ pipeline {
                                 def success = false
                                 for (int i = 0; i < retries && !success; i++) {
                                     try {
-                                        sh '''
-                                            rm -rf node_modules
-                                            npm install --timeout=300000 --registry=https://registry.npmjs.org/
-                                        '''
+                                        script {
+                                            if (isUnix()) {
+                                                sh '''
+                                                    rm -rf node_modules
+                                                    npm install --timeout=300000 --registry=https://registry.npmjs.org/
+                                                '''
+                                            } else {
+                                                bat '''
+                                                    if exist node_modules rmdir /s /q node_modules
+                                                    npm install --timeout=300000 --registry=https://registry.npmjs.org/
+                                                '''
+                                            }
+                                        }
                                         success = true
                                     } catch (Exception e) {
                                         echo "Frontend npm install attempt ${i+1} failed: ${e.getMessage()}"
@@ -141,7 +201,13 @@ pipeline {
                         script {
                             try {
                                 dir('api') {
-                                    sh 'npm run lint'
+                                    script {
+                                        if (isUnix()) {
+                                            sh 'npm run lint'
+                                        } else {
+                                            bat 'npm run lint'
+                                        }
+                                    }
                                 }
                             } catch (Exception e) {
                                 echo "API lint failed: ${e.getMessage()}"
@@ -149,7 +215,13 @@ pipeline {
                             
                             try {
                                 dir('workers') {
-                                    sh 'npm run lint'
+                                    script {
+                                        if (isUnix()) {
+                                            sh 'npm run lint'
+                                        } else {
+                                            bat 'npm run lint'
+                                        }
+                                    }
                                 }
                             } catch (Exception e) {
                                 echo "Workers lint failed: ${e.getMessage()}"
@@ -157,7 +229,13 @@ pipeline {
                             
                             try {
                                 dir('frontend') {
-                                    sh 'npx eslint src --ext .js,.jsx --fix'
+                                    script {
+                                        if (isUnix()) {
+                                            sh 'npx eslint src --ext .js,.jsx --fix'
+                                        } else {
+                                            bat 'npx eslint src --ext .js,.jsx --fix'
+                                        }
+                                    }
                                 }
                             } catch (Exception e) {
                                 echo "Frontend lint failed: ${e.getMessage()}"
@@ -170,7 +248,13 @@ pipeline {
                         script {
                             try {
                                 dir('api') {
-                                    sh 'npm test'
+                                    script {
+                                        if (isUnix()) {
+                                            sh 'npm test'
+                                        } else {
+                                            bat 'npm test'
+                                        }
+                                    }
                                     if (fileExists('test-results.xml')) {
                                         junit 'test-results.xml'
                                     }
@@ -181,7 +265,13 @@ pipeline {
                             
                             try {
                                 dir('workers') {
-                                    sh 'npm test'
+                                    script {
+                                        if (isUnix()) {
+                                            sh 'npm test'
+                                        } else {
+                                            bat 'npm test'
+                                        }
+                                    }
                                     if (fileExists('test-results.xml')) {
                                         junit 'test-results.xml'
                                     }
@@ -192,7 +282,13 @@ pipeline {
                             
                             try {
                                 dir('frontend') {
-                                    sh 'npm test'
+                                    script {
+                                        if (isUnix()) {
+                                            sh 'npm test'
+                                        } else {
+                                            bat 'npm test'
+                                        }
+                                    }
                                     if (fileExists('test-results.xml')) {
                                         junit 'test-results.xml'
                                     }
@@ -211,85 +307,137 @@ pipeline {
                 stage('API') {
                     steps {
                         dir('api') {
-                            sh "docker build -t ${env.API_IMAGE} ."
-                            sh "docker tag ${env.API_IMAGE} ${PROJECT_NAME}-api:latest"
-                            sh "docker save -o ../shared/${env.API_IMAGE.replace(':', '_')}.tar ${env.API_IMAGE}"
+                            script {
+                                if (isUnix()) {
+                                    sh "docker build -t ${env.API_IMAGE} ."
+                                    sh "docker tag ${env.API_IMAGE} ${PROJECT_NAME}-api:latest"
+                                    sh "docker save -o ../shared/${env.API_IMAGE.replace(':', '_')}.tar ${env.API_IMAGE}"
+                                } else {
+                                    bat "docker build -t ${env.API_IMAGE} ."
+                                    bat "docker tag ${env.API_IMAGE} ${PROJECT_NAME}-api:latest"
+                                    bat "docker save -o ..\\shared\\${env.API_IMAGE.replace(':', '_')}.tar ${env.API_IMAGE}"
+                                }
+                            }
                         }
                     }
                 }
                 stage('Workers') {
                     steps {
                         dir('workers') {
-                            sh "docker build -t ${env.WORKERS_IMAGE} ."
-                            sh "docker tag ${env.WORKERS_IMAGE} ${PROJECT_NAME}-workers:latest"
-                            sh "docker save -o ../shared/${env.WORKERS_IMAGE.replace(':', '_')}.tar ${env.WORKERS_IMAGE}"
+                            script {
+                                if (isUnix()) {
+                                    sh "docker build -t ${env.WORKERS_IMAGE} ."
+                                    sh "docker tag ${env.WORKERS_IMAGE} ${PROJECT_NAME}-workers:latest"
+                                    sh "docker save -o ../shared/${env.WORKERS_IMAGE.replace(':', '_')}.tar ${env.WORKERS_IMAGE}"
+                                } else {
+                                    bat "docker build -t ${env.WORKERS_IMAGE} ."
+                                    bat "docker tag ${env.WORKERS_IMAGE} ${PROJECT_NAME}-workers:latest"
+                                    bat "docker save -o ..\\shared\\${env.WORKERS_IMAGE.replace(':', '_')}.tar ${env.WORKERS_IMAGE}"
+                                }
+                            }
                         }
                     }
                 }
                 stage('Frontend') {
                     steps {
                         dir('frontend') {
-                            sh "docker build -t ${env.FRONTEND_IMAGE} ."
-                            sh "docker tag ${env.FRONTEND_IMAGE} ${PROJECT_NAME}-frontend:latest"
-                            sh "docker save -o ../shared/${env.FRONTEND_IMAGE.replace(':', '_')}.tar ${env.FRONTEND_IMAGE}"
+                            script {
+                                if (isUnix()) {
+                                    sh "docker build -t ${env.FRONTEND_IMAGE} ."
+                                    sh "docker tag ${env.FRONTEND_IMAGE} ${PROJECT_NAME}-frontend:latest"
+                                    sh "docker save -o ../shared/${env.FRONTEND_IMAGE.replace(':', '_')}.tar ${env.FRONTEND_IMAGE}"
+                                } else {
+                                    bat "docker build -t ${env.FRONTEND_IMAGE} ."
+                                    bat "docker tag ${env.FRONTEND_IMAGE} ${PROJECT_NAME}-frontend:latest"
+                                    bat "docker save -o ..\\shared\\${env.FRONTEND_IMAGE.replace(':', '_')}.tar ${env.FRONTEND_IMAGE}"
+                                }
+                            }
                         }
                     }
                 }
             }
         }
 
-        // NEW STAGE: Load images into Kind cluster
-        stage('Load Images into Kind') {
+        // Load images into local Kubernetes cluster
+        stage('Load Images into Local K8s') {
             steps {
                 script {
                     try {
-                        // Check if kind is available
-                        def kindCheck = sh(
-                            script: 'which kind',
-                            returnStatus: true
-                        )
-                        
-                        if (kindCheck != 0) {
-                            echo "Kind CLI not found. Installing Kind..."
-                            // Try to install kind if not available
-                            sh '''
-                                curl -Lo kind https://github.com/kubernetes-sigs/kind/releases/latest/download/kind-linux-amd64
-                                chmod +x kind
-                                sudo mv kind /usr/local/bin/
-                            '''
+                        // Check if kubectl is available (for any K8s - kind, Docker Desktop, etc.)
+                        def kubectlCheck
+                        if (isUnix()) {
+                            kubectlCheck = sh(
+                                script: 'which kubectl',
+                                returnStatus: true
+                            )
+                        } else {
+                            kubectlCheck = bat(
+                                script: 'where kubectl',
+                                returnStatus: true
+                            )
                         }
                         
-                        // Load from tar files first
+                        if (kubectlCheck != 0) {
+                            error "kubectl not found! Please ensure Kubernetes is running locally (Docker Desktop K8s, kind, minikube, etc.)"
+                        }
+                        
+                        // Load Docker images from tar files
                         echo "Loading images from tar files..."
-                        sh """
-                            docker load -i shared/${env.API_IMAGE.replace(':', '_')}.tar
-                            docker load -i shared/${env.WORKERS_IMAGE.replace(':', '_')}.tar  
-                            docker load -i shared/${env.FRONTEND_IMAGE.replace(':', '_')}.tar
-                        """
-                        
-                        // Now try to load into kind cluster with the updated PATH
-                        try {
-                            sh '''
-                                kind load docker-image message-publisher-api:latest --name message-publisher
-                                kind load docker-image message-publisher-frontend:latest --name message-publisher  
-                                kind load docker-image message-publisher-workers:latest --name message-publisher
-                            '''
-                            echo "Images successfully loaded into Kind cluster"
-                        } catch (Exception kindErr) {
-                            echo "Kind load failed: ${kindErr.getMessage()}"
-                            echo "Images are loaded locally, will use imagePullPolicy: Never"
+                        if (isUnix()) {
+                            sh """
+                                docker load -i shared/${env.API_IMAGE.replace(':', '_')}.tar
+                                docker load -i shared/${env.WORKERS_IMAGE.replace(':', '_')}.tar  
+                                docker load -i shared/${env.FRONTEND_IMAGE.replace(':', '_')}.tar
+                            """
+                        } else {
+                            bat """
+                                docker load -i shared\\${env.API_IMAGE.replace(':', '_')}.tar
+                                docker load -i shared\\${env.WORKERS_IMAGE.replace(':', '_')}.tar  
+                                docker load -i shared\\${env.FRONTEND_IMAGE.replace(':', '_')}.tar
+                            """
                         }
-                        echo "Images loaded into Kind cluster successfully"
+                        
+                        // Try to load into local K8s cluster (works for kind, Docker Desktop)
+                        try {
+                            if (isUnix()) {
+                                def result = sh(script: 'kubectl config current-context', returnStdout: true).trim()
+                                echo "Current K8s context: ${result}"
+                                // Try kind load if it's a kind cluster
+                                if (result.contains('kind')) {
+                                    sh '''
+                                        kind load docker-image message-publisher-api:latest
+                                        kind load docker-image message-publisher-frontend:latest
+                                        kind load docker-image message-publisher-workers:latest
+                                    '''
+                                }
+                            } else {
+                                def result = bat(script: '@echo off && kubectl config current-context', returnStdout: true).trim()
+                                echo "Current K8s context: ${result}"
+                                // For Docker Desktop on Windows, images are already available
+                            }
+                            echo "Images available in local K8s cluster"
+                        } catch (Exception k8sErr) {
+                            echo "K8s load info: ${k8sErr.getMessage()}"
+                            echo "Images loaded into Docker, should be available to K8s"
+                        }
                     } catch (Exception e) {
                         echo "Failed to load images into Kind: ${e.getMessage()}"
                         echo "Attempting alternative docker load method..."
                         try {
                             // Fallback: Load from saved tar files
-                            sh """
-                                docker load -i shared/${env.API_IMAGE.replace(':', '_')}.tar
-                                docker load -i shared/${env.WORKERS_IMAGE.replace(':', '_')}.tar
-                                docker load -i shared/${env.FRONTEND_IMAGE.replace(':', '_')}.tar
-                            """
+                            if (isUnix()) {
+                                sh """
+                                    docker load -i shared/${env.API_IMAGE.replace(':', '_')}.tar
+                                    docker load -i shared/${env.WORKERS_IMAGE.replace(':', '_')}.tar
+                                    docker load -i shared/${env.FRONTEND_IMAGE.replace(':', '_')}.tar
+                                """
+                            } else {
+                                bat """
+                                    docker load -i shared\\${env.API_IMAGE.replace(':', '_')}.tar
+                                    docker load -i shared\\${env.WORKERS_IMAGE.replace(':', '_')}.tar
+                                    docker load -i shared\\${env.FRONTEND_IMAGE.replace(':', '_')}.tar
+                                """
+                            }
                             echo "Images loaded successfully via docker load"
                         } catch (Exception e2) {
                             echo "Both kind and docker load failed: ${e2.getMessage()}"
