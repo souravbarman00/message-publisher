@@ -217,21 +217,29 @@ pipeline {
                                 curl.exe -Lo kind-windows-amd64.exe https://github.com/kubernetes-sigs/kind/releases/latest/download/kind-windows-amd64
                                 mkdir C:\\tools 2>nul || echo Directory exists
                                 move kind-windows-amd64.exe C:\\tools\\kind.exe
-                                set PATH=%PATH%;C:\\tools
                             '''
-                            
-                            // Alternative: Load from tar files if kind is not available
-                            echo "Loading images from tar files as fallback..."
-                            bat """
-                                docker load -i shared\\${env.API_IMAGE.replace(':', '_')}.tar
-                                docker load -i shared\\${env.WORKERS_IMAGE.replace(':', '_')}.tar  
-                                docker load -i shared\\${env.FRONTEND_IMAGE.replace(':', '_')}.tar
-                            """
-                        } else {
-                            // Load the latest tagged images into kind cluster
-                            bat "kind load docker-image ${PROJECT_NAME}-api:latest --name message-publisher"
-                            bat "kind load docker-image ${PROJECT_NAME}-frontend:latest --name message-publisher"
-                            bat "kind load docker-image ${PROJECT_NAME}-workers:latest --name message-publisher"
+                        }
+                        
+                        // Load from tar files first
+                        echo "Loading images from tar files..."
+                        bat """
+                            docker load -i shared\\${env.API_IMAGE.replace(':', '_')}.tar
+                            docker load -i shared\\${env.WORKERS_IMAGE.replace(':', '_')}.tar  
+                            docker load -i shared\\${env.FRONTEND_IMAGE.replace(':', '_')}.tar
+                        """
+                        
+                        // Now try to load into kind cluster with the updated PATH
+                        try {
+                            bat '''
+                                set PATH=%PATH%;C:\\tools
+                                kind load docker-image message-publisher-api:latest --name message-publisher
+                                kind load docker-image message-publisher-frontend:latest --name message-publisher  
+                                kind load docker-image message-publisher-workers:latest --name message-publisher
+                            '''
+                            echo "Images successfully loaded into Kind cluster"
+                        } catch (Exception kindErr) {
+                            echo "Kind load failed: ${kindErr.getMessage()}"
+                            echo "Images are loaded locally, will use imagePullPolicy: Never"
                         }
                         echo "Images loaded into Kind cluster successfully"
                     } catch (Exception e) {
@@ -329,11 +337,27 @@ pipeline {
                             // Ensure namespace exists
                             bat 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
                             
+                            // Force delete problematic pods to start fresh
+                            try {
+                                bat 'kubectl delete pods --all -n message-publisher --timeout=60s'
+                                echo "Deleted old pods to start fresh"
+                            } catch (Exception e) {
+                                echo "Pod deletion warning: ${e.getMessage()}"
+                            }
+                            
                             // Apply deployments
                             bat 'kubectl apply -f k8s/api-deployment.yaml -n message-publisher'
                             bat 'kubectl apply -f k8s/workers-deployment.yaml -n message-publisher'
                             bat 'kubectl apply -f k8s/frontend-deployment.yaml -n message-publisher'
+                            
+                            // Force restart deployments to pick up new images
+                            bat 'kubectl rollout restart deployment/message-publisher-api -n message-publisher'
+                            bat 'kubectl rollout restart deployment/message-publisher-workers -n message-publisher'
+                            bat 'kubectl rollout restart deployment/message-publisher-frontend -n message-publisher'
 
+                            // Wait a moment for pods to start
+                            bat 'timeout /t 10'
+                            
                             // Check pod status before rollout
                             bat 'kubectl get pods -n message-publisher'
                             
