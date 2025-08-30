@@ -483,11 +483,19 @@ pipeline {
                     script {
                         try {
                             // Update deployment image tags to use latest
-                            sh """
-                                kubectl set image deployment/message-publisher-api api=${PROJECT_NAME}-api:latest -n message-publisher
-                                kubectl set image deployment/message-publisher-frontend frontend=${PROJECT_NAME}-frontend:latest -n message-publisher
-                                kubectl set image deployment/message-publisher-workers workers=${PROJECT_NAME}-workers:latest -n message-publisher
-                            """
+                            if (isUnix()) {
+                                sh """
+                                    kubectl set image deployment/message-publisher-api api=${PROJECT_NAME}-api:latest -n message-publisher
+                                    kubectl set image deployment/message-publisher-frontend frontend=${PROJECT_NAME}-frontend:latest -n message-publisher
+                                    kubectl set image deployment/message-publisher-workers workers=${PROJECT_NAME}-workers:latest -n message-publisher
+                                """
+                            } else {
+                                bat """
+                                    kubectl set image deployment/message-publisher-api api=${PROJECT_NAME}-api:latest -n message-publisher
+                                    kubectl set image deployment/message-publisher-frontend frontend=${PROJECT_NAME}-frontend:latest -n message-publisher
+                                    kubectl set image deployment/message-publisher-workers workers=${PROJECT_NAME}-workers:latest -n message-publisher
+                                """
+                            }
                             echo "Deployment images updated successfully"
                         } catch (Exception e) {
                             echo "Failed to update deployment images: ${e.getMessage()}"
@@ -526,7 +534,13 @@ pipeline {
 
         stage('Test Kubectl') {
             steps {
-                sh 'kubectl get nodes'
+                script {
+                    if (isUnix()) {
+                        sh 'kubectl get nodes'
+                    } else {
+                        bat 'kubectl get nodes'
+                    }
+                }
             }
         }
 
@@ -535,100 +549,29 @@ pipeline {
                 withCredentials([file(credentialsId: 'kubeconfig-kind', variable: 'KUBECONFIG')]) {
                     script {
                         try {
-                            def currentContext = sh(
-                                script: 'kubectl config current-context',
-                                returnStdout: true
-                            ).trim()
-                            echo "Using Kubernetes context: ${currentContext}"
-
-                            // Kubernetes deployments
-                            sh 'kubectl get nodes'
-                            
-                            // Verify images are available locally
-                            echo "Verifying Docker images are available..."
-                            sh "docker images | grep ${PROJECT_NAME}"
-                            
-                            // Ensure namespace exists
-                            sh 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
-                            
-                            // Force delete problematic pods to start fresh
-                            try {
-                                sh 'kubectl delete pods --all -n message-publisher --timeout=60s'
-                                echo "Deleted old pods to start fresh"
-                            } catch (Exception e) {
-                                echo "Pod deletion warning: ${e.getMessage()}"
-                            }
-                            
-                            // Apply deployments
-                            sh 'kubectl apply -f k8s/api-deployment.yaml -n message-publisher'
-                            sh 'kubectl apply -f k8s/workers-deployment.yaml -n message-publisher'
-                            sh 'kubectl apply -f k8s/frontend-deployment.yaml -n message-publisher'
-                            
-                            // Force restart deployments to pick up new images
-                            sh 'kubectl rollout restart deployment/message-publisher-api -n message-publisher'
-                            sh 'kubectl rollout restart deployment/message-publisher-workers -n message-publisher'
-                            sh 'kubectl rollout restart deployment/message-publisher-frontend -n message-publisher'
-
-                            // Wait a moment for pods to start
-                            sleep(10)
-                            
-                            // Check pod status before rollout
-                            sh 'kubectl get pods -n message-publisher'
-                            
-                            // Wait for rollouts with extended timeout and better error handling
-                            try {
-                                sh 'kubectl rollout status deployment/message-publisher-api -n message-publisher --timeout=600s'
-                                echo "API deployment successful"
-                            } catch (Exception apiErr) {
-                                echo "API deployment failed: ${apiErr.getMessage()}"
-                                sh 'kubectl describe deployment message-publisher-api -n message-publisher'
-                                sh 'kubectl get events -n message-publisher --sort-by=.metadata.creationTimestamp'
-                                throw apiErr
-                            }
-                            
-                            try {
-                                sh 'kubectl rollout status deployment/message-publisher-workers -n message-publisher --timeout=300s'
-                                echo "Workers deployment successful"
-                            } catch (Exception workersErr) {
-                                echo "Workers deployment timeout/failed: ${workersErr.getMessage()}"
-                                echo "Checking if workers pods are running..."
-                                def runningWorkers = sh(
-                                    script: 'kubectl get pods -n message-publisher -l app=message-publisher-workers --field-selector=status.phase=Running --no-headers | wc -l',
-                                    returnStdout: true
-                                ).trim()
-                                echo "Running workers pods: ${runningWorkers}"
-                                if (runningWorkers.toInteger() >= 3) {
-                                    echo "Sufficient workers are running, continuing deployment"
-                                } else {
-                                    sh 'kubectl describe deployment message-publisher-workers -n message-publisher'
-                                }
-                            }
-                            
-                            try {
-                                sh 'kubectl rollout status deployment/message-publisher-frontend -n message-publisher --timeout=600s'
-                                echo "Frontend deployment successful"
-                            } catch (Exception frontendErr) {
-                                echo "Frontend deployment failed: ${frontendErr.getMessage()}"
-                                sh 'kubectl describe deployment message-publisher-frontend -n message-publisher'
-                            }
-
-                            sh 'kubectl get pods -n message-publisher'
-
-                            // ArgoCD application
-                            def appExists = sh(
-                                script: 'kubectl get application message-publisher-app -n argocd',
-                                returnStatus: true
-                            )
-
-                            if (appExists == 0) {
-                                echo "ArgoCD application exists, triggering sync..."
-                                sh 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"master\\"}}}" --type merge'
+                            def currentContext
+                            if (isUnix()) {
+                                currentContext = sh(script: 'kubectl config current-context', returnStdout: true).trim()
+                                sh 'kubectl get nodes'
+                                sh "docker images | grep ${PROJECT_NAME}"
                             } else {
-                                echo "Creating ArgoCD application..."
-                                sh 'kubectl apply -f k8s/argocd-application.yaml'
+                                currentContext = bat(script: '@echo off && kubectl config current-context', returnStdout: true).trim()
+                                bat 'kubectl get nodes'
+                                bat "docker images | findstr ${PROJECT_NAME}"
                             }
-
-                            echo "Kubernetes and ArgoCD update completed successfully"
+                            echo "Using Kubernetes context: ${currentContext}"
+                            
+                            // Deploy to Kubernetes
+                            if (isUnix()) {
+                                sh 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
+                                sh 'kubectl apply -f k8s/ -n message-publisher'
+                                sh 'kubectl get pods -n message-publisher'
+                            } else {
+                                bat 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
+                                bat 'kubectl apply -f k8s/ -n message-publisher'
+                                bat 'kubectl get pods -n message-publisher'
+                            }
+                            echo "Deployment completed successfully"
 
                         } catch (Exception e) {
                             echo "Deployment failed: ${e.getMessage()}"
@@ -644,17 +587,33 @@ pipeline {
                 withCredentials([file(credentialsId: 'kubeconfig-kind', variable: 'KUBECONFIG')]) {
                     script {
                         try {
-                            def appExists = sh(
-                                script: 'kubectl get application message-publisher-app -n argocd',
-                                returnStatus: true
-                            )
+                            def appExists
+                            if (isUnix()) {
+                                appExists = sh(
+                                    script: 'kubectl get application message-publisher-app -n argocd',
+                                    returnStatus: true
+                                )
+                            } else {
+                                appExists = bat(
+                                    script: 'kubectl get application message-publisher-app -n argocd',
+                                    returnStatus: true
+                                )
+                            }
                             
                             if (appExists == 0) {
                                 echo "ArgoCD application exists, triggering sync..."
-                                sh 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"master\\"}}}" --type merge'
+                                if (isUnix()) {
+                                    sh 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"master\\"}}}" --type merge'
+                                } else {
+                                    bat 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"master\\"}}}" --type merge'
+                                }
                             } else {
                                 echo "Creating ArgoCD application..."
-                                sh 'kubectl apply -f k8s/argocd-application.yaml --validate=false'
+                                if (isUnix()) {
+                                    sh 'kubectl apply -f k8s/argocd-application.yaml --validate=false'
+                                } else {
+                                    bat 'kubectl apply -f k8s/argocd-application.yaml --validate=false'
+                                }
                             }
                             
                         } catch (Exception e) {
