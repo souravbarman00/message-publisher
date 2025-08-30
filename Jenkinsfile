@@ -65,30 +65,69 @@ pipeline {
                 stage('API Dependencies') {
                     steps {
                         dir('api') {
-                            bat '''
-                                if exist node_modules rmdir /s /q node_modules
-                                npm install --no-bin-links
-                            '''
+                            script {
+                                def retries = 3
+                                def success = false
+                                for (int i = 0; i < retries && !success; i++) {
+                                    try {
+                                        bat '''
+                                            if exist node_modules rmdir /s /q node_modules
+                                            npm install --no-bin-links --timeout=300000 --registry=https://registry.npmjs.org/
+                                        '''
+                                        success = true
+                                    } catch (Exception e) {
+                                        echo "API npm install attempt ${i+1} failed: ${e.getMessage()}"
+                                        if (i == retries - 1) throw e
+                                        sleep(15)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
                 stage('Workers Dependencies') {
                     steps {
                         dir('workers') {
-                            bat '''
-                                if exist node_modules rmdir /s /q node_modules
-                                npm install --no-bin-links
-                            '''
+                            script {
+                                def retries = 3
+                                def success = false
+                                for (int i = 0; i < retries && !success; i++) {
+                                    try {
+                                        bat '''
+                                            if exist node_modules rmdir /s /q node_modules
+                                            npm install --no-bin-links --timeout=300000 --registry=https://registry.npmjs.org/
+                                        '''
+                                        success = true
+                                    } catch (Exception e) {
+                                        echo "Workers npm install attempt ${i+1} failed: ${e.getMessage()}"
+                                        if (i == retries - 1) throw e
+                                        sleep(15)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
                 stage('Frontend Dependencies') {
                     steps {
                         dir('frontend') {
-                            bat '''
-                                if exist node_modules rmdir /s /q node_modules
-                                npm install --no-bin-links
-                            '''
+                            script {
+                                def retries = 3
+                                def success = false
+                                for (int i = 0; i < retries && !success; i++) {
+                                    try {
+                                        bat '''
+                                            if exist node_modules rmdir /s /q node_modules
+                                            npm install --no-bin-links --timeout=300000 --registry=https://registry.npmjs.org/
+                                        '''
+                                        success = true
+                                    } catch (Exception e) {
+                                        echo "Frontend npm install attempt ${i+1} failed: ${e.getMessage()}"
+                                        if (i == retries - 1) throw e
+                                        sleep(15)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
