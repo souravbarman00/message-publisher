@@ -479,7 +479,7 @@ pipeline {
         // NEW STAGE: Update Kubernetes deployments with correct image tags
         stage('Update Deployment Images') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig-kind', variable: 'KUBECONFIG')]) {
+                withCredentials([file(credentialsId: "kubeconfig-kind-${env.NODE_NAME}", variable: 'KUBECONFIG')]) {
                     script {
                         try {
                             // Update deployment image tags to use latest
@@ -546,7 +546,7 @@ pipeline {
 
        stage('Deploy to Kubernetes & Update ArgoCD') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig-kind', variable: 'KUBECONFIG')]) {
+                withCredentials([file(credentialsId: "kubeconfig-kind-${env.NODE_NAME}", variable: 'KUBECONFIG')]) {
                     script {
                         try {
                             def currentContext
@@ -594,7 +594,7 @@ pipeline {
 
         stage('Update ArgoCD Application') {
             steps {
-                withCredentials([file(credentialsId: 'kubeconfig-kind', variable: 'KUBECONFIG')]) {
+                withCredentials([file(credentialsId: "kubeconfig-kind-${env.NODE_NAME}", variable: 'KUBECONFIG')]) {
                     script {
                         try {
                             def appExists
