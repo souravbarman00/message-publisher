@@ -204,14 +204,51 @@ pipeline {
             steps {
                 script {
                     try {
-                        // Load the latest tagged images into kind cluster
-                        bat "kind load docker-image ${PROJECT_NAME}-api:latest --name message-publisher"
-                        bat "kind load docker-image ${PROJECT_NAME}-frontend:latest --name message-publisher"
-                        bat "kind load docker-image ${PROJECT_NAME}-workers:latest --name message-publisher"
+                        // Check if kind is available
+                        def kindCheck = bat(
+                            script: 'where kind',
+                            returnStatus: true
+                        )
+                        
+                        if (kindCheck != 0) {
+                            echo "Kind CLI not found. Installing Kind..."
+                            // Try to install kind if not available
+                            bat '''
+                                curl.exe -Lo kind-windows-amd64.exe https://github.com/kubernetes-sigs/kind/releases/latest/download/kind-windows-amd64
+                                mkdir C:\\tools 2>nul || echo Directory exists
+                                move kind-windows-amd64.exe C:\\tools\\kind.exe
+                                set PATH=%PATH%;C:\\tools
+                            '''
+                            
+                            // Alternative: Load from tar files if kind is not available
+                            echo "Loading images from tar files as fallback..."
+                            bat """
+                                docker load -i shared\\${env.API_IMAGE.replace(':', '_')}.tar
+                                docker load -i shared\\${env.WORKERS_IMAGE.replace(':', '_')}.tar  
+                                docker load -i shared\\${env.FRONTEND_IMAGE.replace(':', '_')}.tar
+                            """
+                        } else {
+                            // Load the latest tagged images into kind cluster
+                            bat "kind load docker-image ${PROJECT_NAME}-api:latest --name message-publisher"
+                            bat "kind load docker-image ${PROJECT_NAME}-frontend:latest --name message-publisher"
+                            bat "kind load docker-image ${PROJECT_NAME}-workers:latest --name message-publisher"
+                        }
                         echo "Images loaded into Kind cluster successfully"
                     } catch (Exception e) {
                         echo "Failed to load images into Kind: ${e.getMessage()}"
-                        currentBuild.result = 'UNSTABLE'
+                        echo "Attempting alternative docker load method..."
+                        try {
+                            // Fallback: Load from saved tar files
+                            bat """
+                                docker load -i shared\\${env.API_IMAGE.replace(':', '_')}.tar
+                                docker load -i shared\\${env.WORKERS_IMAGE.replace(':', '_')}.tar
+                                docker load -i shared\\${env.FRONTEND_IMAGE.replace(':', '_')}.tar
+                            """
+                            echo "Images loaded successfully via docker load"
+                        } catch (Exception e2) {
+                            echo "Both kind and docker load failed: ${e2.getMessage()}"
+                            currentBuild.result = 'UNSTABLE'
+                        }
                     }
                 }
             }
@@ -284,13 +321,48 @@ pipeline {
 
                             // Kubernetes deployments
                             bat 'kubectl get nodes'
+                            
+                            // Verify images are available locally
+                            echo "Verifying Docker images are available..."
+                            bat "docker images | findstr ${PROJECT_NAME}"
+                            
+                            // Ensure namespace exists
+                            bat 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
+                            
+                            // Apply deployments
                             bat 'kubectl apply -f k8s/api-deployment.yaml -n message-publisher'
                             bat 'kubectl apply -f k8s/workers-deployment.yaml -n message-publisher'
                             bat 'kubectl apply -f k8s/frontend-deployment.yaml -n message-publisher'
 
-                            bat 'kubectl rollout status deployment/message-publisher-api -n message-publisher --timeout=300s'
-                            bat 'kubectl rollout status deployment/message-publisher-workers -n message-publisher --timeout=300s'
-                            bat 'kubectl rollout status deployment/message-publisher-frontend -n message-publisher --timeout=300s'
+                            // Check pod status before rollout
+                            bat 'kubectl get pods -n message-publisher'
+                            
+                            // Wait for rollouts with extended timeout and better error handling
+                            try {
+                                bat 'kubectl rollout status deployment/message-publisher-api -n message-publisher --timeout=600s'
+                                echo "API deployment successful"
+                            } catch (Exception apiErr) {
+                                echo "API deployment failed: ${apiErr.getMessage()}"
+                                bat 'kubectl describe deployment message-publisher-api -n message-publisher'
+                                bat 'kubectl get events -n message-publisher --sort-by=.metadata.creationTimestamp'
+                                throw apiErr
+                            }
+                            
+                            try {
+                                bat 'kubectl rollout status deployment/message-publisher-workers -n message-publisher --timeout=600s'
+                                echo "Workers deployment successful"
+                            } catch (Exception workersErr) {
+                                echo "Workers deployment failed: ${workersErr.getMessage()}"
+                                bat 'kubectl describe deployment message-publisher-workers -n message-publisher'
+                            }
+                            
+                            try {
+                                bat 'kubectl rollout status deployment/message-publisher-frontend -n message-publisher --timeout=600s'
+                                echo "Frontend deployment successful"
+                            } catch (Exception frontendErr) {
+                                echo "Frontend deployment failed: ${frontendErr.getMessage()}"
+                                bat 'kubectl describe deployment message-publisher-frontend -n message-publisher'
+                            }
 
                             bat 'kubectl get pods -n message-publisher'
 

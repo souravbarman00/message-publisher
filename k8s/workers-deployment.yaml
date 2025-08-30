@@ -17,6 +17,7 @@ spec:
       containers:
       - name: workers
         image: message-publisher-workers:latest
+        imagePullPolicy: Never
         env:
         - name: NODE_ENV
           value: "production"
