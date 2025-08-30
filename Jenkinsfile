@@ -1,5 +1,5 @@
 pipeline {
-    agent { label 'local-k8s' }  
+    agent { label 'windows-local-k8s' }  
     
     environment {
         PROJECT_NAME = "message-publisher"
