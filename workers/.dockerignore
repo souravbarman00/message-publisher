@@ -27,8 +27,8 @@ node_modules/
 # Yarn Integrity file
 .yarn-integrity
 
-# dotenv environment variables file (keep .env for production)
-# .env
+# dotenv environment variables file (exclude for production)
+.env
 
 # OS generated files
 .DS_Store

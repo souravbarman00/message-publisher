@@ -20,9 +20,55 @@ spec:
         imagePullPolicy: Never
         env:
         - name: NODE_ENV
-          value: "production"
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: NODE_ENV
         - name: LOG_LEVEL
-          value: "info"
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: LOG_LEVEL
+        - name: AWS_REGION
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: AWS_REGION
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: AWS_ACCESS_KEY_ID
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: AWS_SECRET_ACCESS_KEY
+        - name: SNS_TOPIC_ARN
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: SNS_TOPIC_ARN
+        - name: SQS_QUEUE_URL
+          valueFrom:
+            secretKeyRef:
+              name: aws-credentials
+              key: SQS_QUEUE_URL
+        - name: KAFKA_BROKERS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: KAFKA_BROKERS
+        - name: KAFKA_TOPIC
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: KAFKA_TOPIC
+        - name: KAFKA_CONSUMER_GROUP
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: KAFKA_CONSUMER_GROUP
         resources:
           requests:
             memory: "128Mi"

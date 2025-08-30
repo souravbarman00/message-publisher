@@ -136,3 +136,6 @@ temp/
 
 # Docker
 docker-compose.override.yml
+
+# Kubernetes secrets (contains sensitive data)
+k8s/secrets.yaml
