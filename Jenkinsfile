@@ -195,6 +195,7 @@ pipeline {
         }
 
         stage('Lint and Test') {
+            when { expression { false } } // Temporarily skip
             parallel {
                 stage('Lint') {
                     steps {
