@@ -564,11 +564,21 @@ pipeline {
                             // Deploy to Kubernetes
                             if (isUnix()) {
                                 sh 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
-                                sh 'kubectl apply -f k8s/ -n message-publisher --ignore-not-found=true || echo "Some files applied to different namespaces"'
+                                sh '''
+                                    kubectl apply -f k8s/api-deployment.yaml -n message-publisher
+                                    kubectl apply -f k8s/workers-deployment.yaml -n message-publisher  
+                                    kubectl apply -f k8s/frontend-deployment.yaml -n message-publisher
+                                    kubectl apply -f k8s/argocd-application.yaml
+                                '''
                                 sh 'kubectl get pods -n message-publisher'
                             } else {
                                 bat 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
-                                bat 'kubectl apply -f k8s/ -n message-publisher --ignore-not-found=true || echo "Some files applied to different namespaces"'
+                                bat '''
+                                    kubectl apply -f k8s/api-deployment.yaml -n message-publisher
+                                    kubectl apply -f k8s/workers-deployment.yaml -n message-publisher  
+                                    kubectl apply -f k8s/frontend-deployment.yaml -n message-publisher
+                                    kubectl apply -f k8s/argocd-application.yaml
+                                '''
                                 bat 'kubectl get pods -n message-publisher'
                             }
                             echo "Deployment completed successfully"
