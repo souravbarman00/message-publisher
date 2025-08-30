@@ -356,7 +356,7 @@ pipeline {
                             bat 'kubectl rollout restart deployment/message-publisher-frontend -n message-publisher'
 
                             // Wait a moment for pods to start
-                            bat 'timeout /t 10'
+                            sleep(10)
                             
                             // Check pod status before rollout
                             bat 'kubectl get pods -n message-publisher'
