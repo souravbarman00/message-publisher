@@ -432,7 +432,7 @@ sudo systemctl restart nginx
 ## 🎉 **Final Result**
 
 After completion, you'll have:
-
+1
 ✅ **Jenkins on EC2**: Identical to your local setup  
 ✅ **Same port 8081**: Consistent access  
 ✅ **GitHub Integration**: Auto-triggers on push  
