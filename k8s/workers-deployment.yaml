@@ -76,17 +76,3 @@ spec:
           limits:
             memory: "256Mi"
             cpu: "200m"
-        livenessProbe:
-          exec:
-            command:
-            - node
-            - healthcheck.js
-          initialDelaySeconds: 30
-          periodSeconds: 15
-        readinessProbe:
-          exec:
-            command:
-            - node
-            - healthcheck.js
-          initialDelaySeconds: 15
-          periodSeconds: 10

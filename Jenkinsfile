@@ -379,7 +379,7 @@ pipeline {
                                 echo "Workers deployment timeout/failed: ${workersErr.getMessage()}"
                                 echo "Checking if workers pods are running..."
                                 def runningWorkers = bat(
-                                    script: 'kubectl get pods -n message-publisher -l app=message-publisher-workers --field-selector=status.phase=Running --no-headers | wc -l',
+                                    script: 'kubectl get pods -n message-publisher -l app=message-publisher-workers --field-selector=status.phase=Running --no-headers | find /c /v ""',
                                     returnStdout: true
                                 ).trim()
                                 echo "Running workers pods: ${runningWorkers}"
