@@ -407,6 +407,9 @@ pipeline {
                                 // Try kind load if it's a kind cluster
                                 if (result.contains('kind')) {
                                     sh """
+                                        kind load docker-image ${env.API_IMAGE} --name ${KIND_CLUSTER_NAME}
+                                        kind load docker-image ${env.FRONTEND_IMAGE} --name ${KIND_CLUSTER_NAME}
+                                        kind load docker-image ${env.WORKERS_IMAGE} --name ${KIND_CLUSTER_NAME}
                                         kind load docker-image ${PROJECT_NAME}-api:latest --name ${KIND_CLUSTER_NAME}
                                         kind load docker-image ${PROJECT_NAME}-frontend:latest --name ${KIND_CLUSTER_NAME}
                                         kind load docker-image ${PROJECT_NAME}-workers:latest --name ${KIND_CLUSTER_NAME}
@@ -432,6 +435,9 @@ pipeline {
                                     try {
                                         bat """
                                             set PATH=%PATH%;C:\\\\tools
+                                            kind load docker-image ${env.API_IMAGE} --name ${KIND_CLUSTER_NAME}
+                                            kind load docker-image ${env.FRONTEND_IMAGE} --name ${KIND_CLUSTER_NAME}
+                                            kind load docker-image ${env.WORKERS_IMAGE} --name ${KIND_CLUSTER_NAME}
                                             kind load docker-image ${PROJECT_NAME}-api:latest --name ${KIND_CLUSTER_NAME}
                                             kind load docker-image ${PROJECT_NAME}-frontend:latest --name ${KIND_CLUSTER_NAME}
                                             kind load docker-image ${PROJECT_NAME}-workers:latest --name ${KIND_CLUSTER_NAME}
@@ -484,21 +490,43 @@ pipeline {
                 withCredentials([file(credentialsId: "kubeconfig-kind-${env.NODE_NAME}", variable: 'KUBECONFIG')]) {
                     script {
                         try {
-                            // Update deployment image tags to use latest
+                            // Update deployment image tags to use versioned images and force restart
                             if (isUnix()) {
                                 sh """
-                                    kubectl set image deployment/message-publisher-api api=${PROJECT_NAME}-api:latest -n message-publisher
-                                    kubectl set image deployment/message-publisher-frontend frontend=${PROJECT_NAME}-frontend:latest -n message-publisher
-                                    kubectl set image deployment/message-publisher-workers workers=${PROJECT_NAME}-workers:latest -n message-publisher
+                                    # Use versioned images to ensure fresh deployment
+                                    kubectl set image deployment/message-publisher-api api=${env.API_IMAGE} -n message-publisher
+                                    kubectl set image deployment/message-publisher-frontend frontend=${env.FRONTEND_IMAGE} -n message-publisher
+                                    kubectl set image deployment/message-publisher-workers workers=${env.WORKERS_IMAGE} -n message-publisher
+                                    
+                                    # Force restart to pull new images
+                                    kubectl rollout restart deployment/message-publisher-api -n message-publisher
+                                    kubectl rollout restart deployment/message-publisher-frontend -n message-publisher
+                                    kubectl rollout restart deployment/message-publisher-workers -n message-publisher
+                                    
+                                    # Wait for rollouts to complete
+                                    kubectl rollout status deployment/message-publisher-api -n message-publisher --timeout=300s
+                                    kubectl rollout status deployment/message-publisher-frontend -n message-publisher --timeout=300s
+                                    kubectl rollout status deployment/message-publisher-workers -n message-publisher --timeout=300s
                                 """
                             } else {
                                 bat """
-                                    kubectl set image deployment/message-publisher-api api=${PROJECT_NAME}-api:latest -n message-publisher
-                                    kubectl set image deployment/message-publisher-frontend frontend=${PROJECT_NAME}-frontend:latest -n message-publisher
-                                    kubectl set image deployment/message-publisher-workers workers=${PROJECT_NAME}-workers:latest -n message-publisher
+                                    REM Use versioned images to ensure fresh deployment
+                                    kubectl set image deployment/message-publisher-api api=${env.API_IMAGE} -n message-publisher
+                                    kubectl set image deployment/message-publisher-frontend frontend=${env.FRONTEND_IMAGE} -n message-publisher
+                                    kubectl set image deployment/message-publisher-workers workers=${env.WORKERS_IMAGE} -n message-publisher
+                                    
+                                    REM Force restart to pull new images
+                                    kubectl rollout restart deployment/message-publisher-api -n message-publisher
+                                    kubectl rollout restart deployment/message-publisher-frontend -n message-publisher
+                                    kubectl rollout restart deployment/message-publisher-workers -n message-publisher
+                                    
+                                    REM Wait for rollouts to complete
+                                    kubectl rollout status deployment/message-publisher-api -n message-publisher --timeout=300s
+                                    kubectl rollout status deployment/message-publisher-frontend -n message-publisher --timeout=300s
+                                    kubectl rollout status deployment/message-publisher-workers -n message-publisher --timeout=300s
                                 """
                             }
-                            echo "Deployment images updated successfully"
+                            echo "Deployment images updated successfully with version ${env.VERSION}"
                         } catch (Exception e) {
                             echo "Failed to update deployment images: ${e.getMessage()}"
                         }
