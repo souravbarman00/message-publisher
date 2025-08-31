@@ -19,25 +19,23 @@ echo.
 echo 1. Install Development Tools (Java, Node.js, Docker, kubectl, Kind)
 echo 2. Start Docker Desktop
 echo 3. Create Kind Kubernetes Cluster
-echo 4. Setup Jenkins Agent ^& Credentials
-echo 5. Install ArgoCD
-echo 6. Apply Secrets ^& ConfigMap
-echo 7. Start Port Forwarding (Frontend ^& ArgoCD)
-echo 8. Full Setup (All above steps)
-echo 9. Exit
+echo 4. Install ArgoCD
+echo 5. Apply Secrets ^& ConfigMap
+echo 6. Start Port Forwarding (Frontend ^& ArgoCD)
+echo 7. Full Setup (All above steps)
+echo 8. Exit
 echo.
-set /p choice="Enter your choice (1-9): "
+set /p choice="Enter your choice (1-8): "
 
 if "%choice%"=="1" goto :INSTALL_TOOLS
 if "%choice%"=="2" goto :START_DOCKER
 if "%choice%"=="3" goto :CREATE_CLUSTER
-if "%choice%"=="4" goto :JENKINS_AGENT
-if "%choice%"=="5" goto :INSTALL_ARGOCD
-if "%choice%"=="6" goto :APPLY_SECRETS
-if "%choice%"=="7" goto :PORT_FORWARD
-if "%choice%"=="8" goto :FULL_SETUP
-if "%choice%"=="9" goto :EXIT
-echo Invalid choice. Please select 1-9.
+if "%choice%"=="4" goto :INSTALL_ARGOCD
+if "%choice%"=="5" goto :APPLY_SECRETS
+if "%choice%"=="6" goto :PORT_FORWARD
+if "%choice%"=="7" goto :FULL_SETUP
+if "%choice%"=="8" goto :EXIT
+echo Invalid choice. Please select 1-8.
 pause
 goto :MAIN_MENU
 
@@ -219,7 +217,7 @@ echo 2. UPLOAD KUBECONFIG CREDENTIAL:
 echo    - Go to Jenkins: Manage Jenkins - Credentials
 echo    - Add new 'Secret file' credential
 echo    - Upload file: %USERPROFILE%\.kube\config
-echo    - ID: kubeconfig-kind-%COMPUTERNAME%
+echo    - ID: kubeconfig-kind-%COMPUTERNAME%-local-k8s
 echo    - Description: 'Kind cluster kubeconfig for %COMPUTERNAME%'
 echo.
 echo 3. KUBECONFIG FILE LOCATION:
@@ -227,17 +225,9 @@ echo    File to upload: %USERPROFILE%\.kube\config
 for /f "tokens=*" %%i in ('kubectl config current-context 2^>nul') do set CURRENT_CONTEXT=%%i
 echo    Current cluster: !CURRENT_CONTEXT!
 echo.
-echo 4. SETUP JENKINS AGENT:
-echo    - Download Jenkins agent from your EC2 Jenkins:
-echo      curl -O http://your-ec2-jenkins:8080/jnlpJars/agent.jar
-echo    - Get agent connection command from team lead
-echo    - Start agent with provided secret and work directory
-echo    - Create work directory: mkdir C:\jenkins-work
-echo.
-echo 5. VERIFY CREDENTIAL:
+echo 4. VERIFY CREDENTIAL:
 echo    - Test the credential in Jenkins
 echo    - Run a test pipeline to ensure connectivity
-echo    - Credential ID should match: kubeconfig-kind-%COMPUTERNAME%-local-k8s
 echo.
 echo ================================================================
 echo.
@@ -260,114 +250,6 @@ if /I "!jenkins_done!"=="y" (
 echo.
 pause
 return
-
-:JENKINS_AGENT
-echo.
-echo [INFO] Setting up Jenkins Agent ^& Credentials...
-echo.
-
-REM Create jenkins work directory
-echo [INFO] Creating Jenkins work directory...
-mkdir C:\jenkins-work 2>nul
-echo [SUCCESS] Jenkins work directory created at: C:\jenkins-work
-echo.
-
-echo ================================================================
-echo                 JENKINS AGENT ^& CREDENTIALS SETUP
-echo ================================================================
-echo.
-echo STEP 1: Jenkins Agent Details
-echo Node Name: %COMPUTERNAME%-local-k8s
-echo Node Labels: local-k8s (IMPORTANT: Add this label!)
-echo Work Directory: C:\jenkins-work
-echo.
-
-set /p JENKINS_URL="Enter your EC2 Jenkins URL (e.g., http://your-ec2-ip:8080): "
-if "!JENKINS_URL!"=="" (
-    echo [WARNING] Jenkins URL not provided. Using placeholder.
-    set JENKINS_URL=http://your-ec2-jenkins:8080
-)
-
-echo.
-echo STEP 2: Download Jenkins Agent
-echo ================================================================
-echo Command to run:
-echo curl -O !JENKINS_URL!/jnlpJars/agent.jar
-echo.
-
-set /p download_agent="Download Jenkins agent now? (y/N): "
-if /I "!download_agent!"=="y" (
-    echo [INFO] Downloading Jenkins agent...
-    curl -O "!JENKINS_URL!/jnlpJars/agent.jar"
-    if %errorLevel% equ 0 (
-        echo [SUCCESS] Jenkins agent downloaded successfully!
-    ) else (
-        echo [ERROR] Failed to download Jenkins agent. Please check Jenkins URL.
-    )
-)
-
-echo.
-echo STEP 3: Kubeconfig Credential Setup
-echo ================================================================
-echo Kubeconfig file location: %USERPROFILE%\.kube\config
-for /f "tokens=*" %%i in ('kubectl config current-context 2^>nul') do set CURRENT_CONTEXT=%%i
-if "!CURRENT_CONTEXT!"=="" set CURRENT_CONTEXT=Not set
-echo Current cluster: !CURRENT_CONTEXT!
-echo Credential ID to use: kubeconfig-kind-%COMPUTERNAME%-local-k8s
-echo.
-echo Manual steps in Jenkins UI:
-echo 1. Go to Jenkins - Manage Jenkins - Credentials
-echo 2. Add new 'Secret file' credential
-echo 3. Upload file: %USERPROFILE%\.kube\config
-echo 4. ID: kubeconfig-kind-%COMPUTERNAME%-local-k8s
-echo 5. Description: 'Kind cluster kubeconfig for %COMPUTERNAME%'
-
-echo.
-set /p open_config="Open kubeconfig directory? (y/N): "
-if /I "!open_config!"=="y" (
-    echo [INFO] Opening kubeconfig directory...
-    explorer %USERPROFILE%\.kube\
-)
-
-echo.
-echo STEP 4: Jenkins Agent Connection
-echo ================================================================
-set /p AGENT_SECRET="Enter your Jenkins agent secret (from team lead): "
-
-if NOT "!AGENT_SECRET!"=="" (
-    echo.
-    echo Jenkins Agent Start Command:
-    echo ================================================================
-    set AGENT_COMMAND=java -jar agent.jar -url !JENKINS_URL! -secret !AGENT_SECRET! -name %COMPUTERNAME%-local-k8s -workDir C:\jenkins-work
-    echo !AGENT_COMMAND!
-    echo.
-    echo This command has been saved to: start-jenkins-agent.bat
-    
-    REM Create start script
-    echo @echo off > start-jenkins-agent.bat
-    echo echo Starting Jenkins Agent for %COMPUTERNAME%-local-k8s... >> start-jenkins-agent.bat
-    echo echo Work Directory: C:\jenkins-work >> start-jenkins-agent.bat
-    echo echo Jenkins URL: !JENKINS_URL! >> start-jenkins-agent.bat
-    echo echo Press Ctrl+C to stop the agent >> start-jenkins-agent.bat
-    echo echo. >> start-jenkins-agent.bat
-    echo !AGENT_COMMAND! >> start-jenkins-agent.bat
-    
-    echo [SUCCESS] Jenkins agent start script created!
-    
-    echo.
-    set /p start_agent="Start Jenkins agent now? (y/N): "
-    if /I "!start_agent!"=="y" (
-        echo [INFO] Starting Jenkins agent...
-        start-jenkins-agent.bat
-        goto :EXIT
-    )
-) else (
-    echo [WARNING] Agent secret not provided. You can run this option again later.
-)
-
-echo.
-pause
-goto :MAIN_MENU
 
 :INSTALL_ARGOCD
 echo.
