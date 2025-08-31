@@ -3,6 +3,7 @@ pipeline {
     
     environment {
         PROJECT_NAME = "message-publisher"
+        KIND_CLUSTER_NAME = "message-publisher" // Add this line to specify cluster name
     }
 
     stages {
@@ -405,11 +406,12 @@ pipeline {
                                 echo "Current K8s context: ${result}"
                                 // Try kind load if it's a kind cluster
                                 if (result.contains('kind')) {
-                                    sh '''
-                                        kind load docker-image message-publisher-api:latest
-                                        kind load docker-image message-publisher-frontend:latest
-                                        kind load docker-image message-publisher-workers:latest
-                                    '''
+                                    sh """
+                                        kind load docker-image ${PROJECT_NAME}-api:latest --name ${KIND_CLUSTER_NAME}
+                                        kind load docker-image ${PROJECT_NAME}-frontend:latest --name ${KIND_CLUSTER_NAME}
+                                        kind load docker-image ${PROJECT_NAME}-workers:latest --name ${KIND_CLUSTER_NAME}
+                                    """
+                                    echo "Images successfully loaded into Kind cluster: ${KIND_CLUSTER_NAME}"
                                 }
                             } else {
                                 def result = bat(script: '@echo off && kubectl config current-context', returnStdout: true).trim()
@@ -428,13 +430,13 @@ pipeline {
                                     }
                                     // Load images into kind cluster
                                     try {
-                                        bat '''
+                                        bat """
                                             set PATH=%PATH%;C:\\\\tools
-                                            kind load docker-image message-publisher-api:latest --name message-publisher
-                                            kind load docker-image message-publisher-frontend:latest --name message-publisher  
-                                            kind load docker-image message-publisher-workers:latest --name message-publisher
-                                        '''
-                                        echo "Images successfully loaded into Kind cluster"
+                                            kind load docker-image ${PROJECT_NAME}-api:latest --name ${KIND_CLUSTER_NAME}
+                                            kind load docker-image ${PROJECT_NAME}-frontend:latest --name ${KIND_CLUSTER_NAME}
+                                            kind load docker-image ${PROJECT_NAME}-workers:latest --name ${KIND_CLUSTER_NAME}
+                                        """
+                                        echo "Images successfully loaded into Kind cluster: ${KIND_CLUSTER_NAME}"
                                     } catch (Exception kindErr) {
                                         echo "Kind load failed: ${kindErr.getMessage()}"
                                         echo "Images are loaded locally, will use imagePullPolicy: Never"
