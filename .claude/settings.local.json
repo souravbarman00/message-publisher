@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(kubectl patch:*)"
+      "Bash(kubectl patch:*)",
+      "Bash(docker build:*)",
+      "Bash(kind load:*)",
+      "Bash(kubectl rollout restart deployment message-publisher-api -n message-publisher)"
     ],
     "deny": [],
     "ask": []

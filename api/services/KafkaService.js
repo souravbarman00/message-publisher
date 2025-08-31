@@ -2,7 +2,11 @@ import { Kafka } from 'kafkajs';
 
 class KafkaService {
   constructor() {
-    const brokers = process.env.KAFKA_BROKERS ? process.env.KAFKA_BROKERS.split(',') : ['192.168.0.103:9092'];
+    const brokers = process.env.KAFKA_BROKERS ? process.env.KAFKA_BROKERS.split(',') : ['host.docker.internal:9092'];
+    
+    console.log('🔧 Kafka Service Constructor:');
+    console.log('   KAFKA_BROKERS env:', process.env.KAFKA_BROKERS);
+    console.log('   Resolved brokers:', brokers);
 
     // Check if we need SASL authentication (for managed Kafka services)
     const kafkaConfig = {
@@ -23,6 +27,7 @@ class KafkaService {
       kafkaConfig.ssl = true;
     }
 
+    console.log('🔧 Final Kafka Config:', JSON.stringify(kafkaConfig, null, 2));
     this.kafka = new Kafka(kafkaConfig);
 
     this.producer = this.kafka.producer({
@@ -50,6 +55,8 @@ class KafkaService {
 
   async _connect() {
     try {
+      console.log('🔌 Attempting to connect Kafka producer...');
+      console.log('🔌 Kafka config brokers:', this.kafka._brokers || 'N/A');
       await this.producer.connect();
       this.isConnected = true;
       this.connectionPromise = null;
@@ -57,6 +64,7 @@ class KafkaService {
     } catch (error) {
       this.connectionPromise = null;
       console.error('❌ Failed to connect Kafka producer:', error);
+      console.error('❌ Broker info:', error.broker || 'N/A');
       throw new Error(`Kafka connection failed: ${error.message}`);
     }
   }
