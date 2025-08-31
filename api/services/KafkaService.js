@@ -2,7 +2,7 @@ import { Kafka } from 'kafkajs';
 
 class KafkaService {
   constructor() {
-    const brokers = process.env.KAFKA_BROKERS ? process.env.KAFKA_BROKERS.split(',') : ['localhost:9092'];
+    const brokers = process.env.KAFKA_BROKERS ? process.env.KAFKA_BROKERS.split(',') : ['127.0.0.1:9092'];
 
     // Check if we need SASL authentication (for managed Kafka services)
     const kafkaConfig = {
