@@ -21,21 +21,23 @@ echo 2. Start Docker Desktop
 echo 3. Create Kind Kubernetes Cluster
 echo 4. Install ArgoCD
 echo 5. Apply Secrets ^& ConfigMap
-echo 6. Start Port Forwarding (Frontend ^& ArgoCD)
-echo 7. Full Setup (All above steps)
-echo 8. Exit
+echo 6. Start Local Development Services (Kafka ^& Kafka UI)
+echo 7. Start Port Forwarding (Frontend ^& ArgoCD)
+echo 8. Full Setup (All above steps)
+echo 9. Exit
 echo.
-set /p choice="Enter your choice (1-8): "
+set /p choice="Enter your choice (1-9): "
 
 if "%choice%"=="1" goto :INSTALL_TOOLS
 if "%choice%"=="2" goto :START_DOCKER
 if "%choice%"=="3" goto :CREATE_CLUSTER
 if "%choice%"=="4" goto :INSTALL_ARGOCD
 if "%choice%"=="5" goto :APPLY_SECRETS
-if "%choice%"=="6" goto :PORT_FORWARD
-if "%choice%"=="7" goto :FULL_SETUP
-if "%choice%"=="8" goto :EXIT
-echo Invalid choice. Please select 1-8.
+if "%choice%"=="6" goto :START_LOCAL_SERVICES
+if "%choice%"=="7" goto :PORT_FORWARD
+if "%choice%"=="8" goto :FULL_SETUP
+if "%choice%"=="9" goto :EXIT
+echo Invalid choice. Please select 1-9.
 pause
 goto :MAIN_MENU
 
@@ -322,6 +324,74 @@ echo.
 pause
 goto :MAIN_MENU
 
+:START_LOCAL_SERVICES
+echo.
+echo [INFO] Starting local development services...
+echo.
+
+REM Check if Docker is running
+docker ps >nul 2>&1
+if %errorLevel% neq 0 (
+    echo [ERROR] Docker is not running. Please start Docker Desktop first.
+    pause
+    goto :MAIN_MENU
+)
+
+REM Check if docker-compose.yml exists
+if not exist "docker-compose.yml" (
+    echo [ERROR] docker-compose.yml not found in current directory.
+    echo [INFO] Make sure you're running this script from the project root directory.
+    pause
+    goto :MAIN_MENU
+)
+
+REM Check if services are already running
+docker-compose ps | findstr "Up" >nul 2>&1
+if %errorLevel% equ 0 (
+    echo [WARNING] Some services are already running.
+    docker-compose ps
+    echo.
+    set /p restart_services="Do you want to restart all services? (y/N): "
+    if /I "!restart_services!"=="y" (
+        echo [INFO] Stopping existing services...
+        docker-compose down
+    ) else (
+        echo [SUCCESS] Using existing services.
+        pause
+        goto :MAIN_MENU
+    )
+)
+
+REM Start services
+echo [INFO] Starting local development services (Kafka, Zookeeper, Kafka UI)...
+docker-compose up -d
+
+if %errorLevel% equ 0 (
+    echo [SUCCESS] Local development services started successfully!
+    echo.
+    echo [INFO] Services running:
+    echo - Kafka: localhost:9092
+    echo - Kafka UI: http://localhost:9090
+    echo.
+    echo [INFO] Waiting for Kafka to be ready...
+    timeout /t 10 /nobreak >nul
+    
+    REM Verify Kafka is accessible (simplified check)
+    docker-compose exec -T kafka kafka-topics --bootstrap-server localhost:9092 --list >nul 2>&1
+    if %errorLevel% equ 0 (
+        echo [SUCCESS] Kafka is ready and accessible!
+    ) else (
+        echo [WARNING] Kafka may still be starting up. Give it a few more seconds.
+    )
+) else (
+    echo [ERROR] Failed to start local development services.
+    echo [INFO] Check Docker logs with: docker-compose logs
+)
+
+echo.
+pause
+goto :MAIN_MENU
+
 :PORT_FORWARD
 echo.
 echo [INFO] Setting up port forwarding...
@@ -403,6 +473,7 @@ echo.
 
 call :INSTALL_TOOLS
 call :START_DOCKER
+call :START_LOCAL_SERVICES
 call :CREATE_CLUSTER
 call :INSTALL_ARGOCD
 call :APPLY_SECRETS

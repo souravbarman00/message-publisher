@@ -63,11 +63,12 @@ show_menu() {
     echo "4. 🤖 Setup Jenkins Agent & Credentials"
     echo "5. 🔄 Install ArgoCD"
     echo "6. 🔑 Apply Secrets & ConfigMap"
-    echo "7. 🌐 Start Port Forwarding (Frontend & ArgoCD)"
-    echo "8. 🔥 Full Setup (All above steps)"
-    echo "9. 🚪 Exit"
+    echo "7. 📊 Start Local Development Services (Kafka & Kafka UI)"
+    echo "8. 🌐 Start Port Forwarding (Frontend & ArgoCD)"
+    echo "9. 🔥 Full Setup (All above steps)"
+    echo "10. 🚪 Exit"
     echo
-    read -p "Enter your choice (1-9): " choice
+    read -p "Enter your choice (1-10): " choice
 }
 
 install_dev_tools() {
@@ -373,6 +374,71 @@ apply_secrets() {
     read -p "Press Enter to continue..."
 }
 
+start_local_services() {
+    print_status "Starting local development services..."
+    echo
+
+    # Check if Docker is running
+    if ! docker ps >/dev/null 2>&1; then
+        print_error "Docker is not running. Please start Docker Desktop first."
+        read -p "Press Enter to continue..."
+        return
+    fi
+
+    # Check if docker-compose.yml exists
+    if [ ! -f "docker-compose.yml" ]; then
+        print_error "docker-compose.yml not found in current directory."
+        print_status "Make sure you're running this script from the project root directory."
+        read -p "Press Enter to continue..."
+        return
+    fi
+
+    # Check if services are already running
+    if docker-compose ps | grep -q "Up"; then
+        print_warning "Some services are already running."
+        docker-compose ps
+        echo
+        read -p "Do you want to restart all services? (y/N): " restart_services
+        if [[ $restart_services =~ ^[Yy]$ ]]; then
+            print_status "Stopping existing services..."
+            docker-compose down
+        else
+            print_success "Using existing services."
+            echo
+            read -p "Press Enter to continue..."
+            return
+        fi
+    fi
+
+    # Start services
+    print_status "Starting local development services (Kafka, Zookeeper, Kafka UI)..."
+    docker-compose up -d
+
+    if [ $? -eq 0 ]; then
+        print_success "Local development services started successfully!"
+        echo
+        print_status "Services running:"
+        print_status "- Kafka: localhost:9092"
+        print_status "- Kafka UI: http://localhost:9090"
+        echo
+        print_status "Waiting for Kafka to be ready..."
+        sleep 10
+        
+        # Verify Kafka is accessible
+        if docker-compose exec -T kafka kafka-topics --bootstrap-server localhost:9092 --list >/dev/null 2>&1; then
+            print_success "Kafka is ready and accessible!"
+        else
+            print_warning "Kafka may still be starting up. Give it a few more seconds."
+        fi
+    else
+        print_error "Failed to start local development services."
+        print_status "Check Docker logs with: docker-compose logs"
+    fi
+
+    echo
+    read -p "Press Enter to continue..."
+}
+
 start_port_forwarding() {
     print_status "Starting port forwarding..."
     echo
@@ -466,6 +532,7 @@ full_setup() {
     print_status "Starting full setup..."
     install_dev_tools
     start_docker
+    start_local_services
     create_kind_cluster
     install_argocd
     apply_secrets
@@ -495,17 +562,20 @@ while true; do
             apply_secrets
             ;;
         7)
-            start_port_forwarding
+            start_local_services
             ;;
         8)
-            full_setup
+            start_port_forwarding
             ;;
         9)
+            full_setup
+            ;;
+        10)
             print_status "Goodbye!"
             exit 0
             ;;
         *)
-            print_error "Invalid choice. Please select 1-9."
+            print_error "Invalid choice. Please select 1-10."
             read -p "Press Enter to continue..."
             ;;
     esac
