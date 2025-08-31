@@ -1,14 +1,9 @@
 #!/bin/bash
 
 # =============================================================================
-#                MESSAGE PUBLISHER - COMPLETE MACOS SETUP
+#                MESSAGE PUBLISHER - MACOS SETUP
 # =============================================================================
-# This script sets up everything needed for local development:
-# 1. Installs all required software (Java, Node.js, Docker, kubectl, kind)
-# 2. Creates standardized Kind Kubernetes cluster  
-# 3. Installs and configures ArgoCD
-# 4. Sets up Jenkins agent connection
-# 5. Provides port forwarding commands for local access
+# Interactive setup script with menu options
 # =============================================================================
 
 set -e
@@ -30,6 +25,7 @@ INFO="ℹ️"
 GEAR="⚙️"
 
 print_header() {
+    clear
     echo ""
     echo "================================================================"
     echo "            MESSAGE PUBLISHER - MACOS SETUP"
@@ -57,164 +53,355 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
-print_header
+show_menu() {
+    print_header
+    echo "What would you like to do?"
+    echo
+    echo "1. 🔧 Install Development Tools (Java, Node.js, Docker, kubectl, Kind)"
+    echo "2. 🐳 Start Docker Desktop"
+    echo "3. ☸️  Create Kind Kubernetes Cluster"
+    echo "4. 🤖 Setup Jenkins Agent & Credentials"
+    echo "5. 🔄 Install ArgoCD"
+    echo "6. 🔑 Apply Secrets & ConfigMap"
+    echo "7. 🌐 Start Port Forwarding (Frontend & ArgoCD)"
+    echo "8. 🔥 Full Setup (All above steps)"
+    echo "9. 🚪 Exit"
+    echo
+    read -p "Enter your choice (1-9): " choice
+}
 
-# ====================
-# STEP 1: Install Software
-# ====================
-print_status "[1/6] Installing required software..."
-echo
-
-# Install Homebrew if not present
-if ! command_exists brew; then
-    print_status "Installing Homebrew..."
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+install_dev_tools() {
+    print_status "Installing development tools..."
+    echo
     
-    # Add Homebrew to PATH
-    echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zshrc
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-fi
+    # Install Homebrew if not present
+    if ! command_exists brew; then
+        print_status "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        
+        # Add Homebrew to PATH
+        echo 'eval "$(/opt/homebrew/bin/brew shellenv)"' >> ~/.zshrc
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    else
+        print_success "Homebrew already installed"
+    fi
 
-print_status "Installing Java 21..."
-brew install openjdk@21
+    # Install Java 21 if not present
+    if ! command_exists java || ! java -version 2>&1 | grep -q "21\." ; then
+        print_status "Installing Java 21..."
+        brew install openjdk@21
+    else
+        print_success "Java 21 already installed"
+    fi
 
-print_status "Installing Node.js LTS..."
-brew install node@20
+    # Install Node.js 18 if not present
+    if ! command_exists node; then
+        print_status "Installing Node.js 18..."
+        brew install node@18
+    else
+        print_success "Node.js already installed ($(node --version))"
+    fi
 
-print_status "Installing Git..."
-brew install git
+    # Install Git if not present
+    if ! command_exists git; then
+        print_status "Installing Git..."
+        brew install git
+    else
+        print_success "Git already installed ($(git --version))"
+    fi
 
-print_status "Installing kubectl..."
-brew install kubectl
+    # Install kubectl if not present
+    if ! command_exists kubectl; then
+        print_status "Installing kubectl..."
+        brew install kubectl
+    else
+        print_success "kubectl already installed"
+    fi
 
-print_status "Installing Kind..."
-brew install kind
+    # Install Kind if not present
+    if ! command_exists kind; then
+        print_status "Installing Kind..."
+        brew install kind
+    else
+        print_success "Kind already installed ($(kind --version))"
+    fi
 
-print_status "Installing Docker Desktop..."
-brew install --cask docker
+    # Install Docker Desktop if not present
+    if ! command_exists docker; then
+        print_status "Installing Docker Desktop..."
+        brew install --cask docker
+    else
+        print_success "Docker already installed ($(docker --version))"
+    fi
 
-# Add Java to PATH
-echo 'export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"' >> ~/.zshrc
-export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
+    # Add Java to PATH
+    echo 'export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"' >> ~/.zshrc
+    export PATH="/opt/homebrew/opt/openjdk@21/bin:$PATH"
 
-print_success "Software installation completed!"
+    print_success "Development tools installation completed!"
+    echo
+    read -p "Press Enter to continue..."
+}
+
+start_docker() {
+    print_status "Checking Docker Desktop status..."
+    echo
+    
+    if docker ps >/dev/null 2>&1; then
+        print_success "Docker Desktop is already running!"
+    else
+        print_warning "Docker Desktop is not running."
+        print_status "Please start Docker Desktop manually:"
+        print_status "1. Open Docker Desktop from Applications"
+        print_status "2. Wait for Docker to fully start (whale icon in menu bar)"
+        echo
+        read -p "Press Enter when Docker Desktop is running..."
+        
+        # Verify Docker is running
+        if docker ps >/dev/null 2>&1; then
+            print_success "Docker Desktop is now running!"
+        else
+            print_error "Docker Desktop is still not running. Please check and try again."
+        fi
+    fi
+    echo
+    read -p "Press Enter to continue..."
+}
+
+create_kind_cluster() {
+    print_status "Creating Kind Kubernetes cluster..."
+    echo
+
+    # Check if cluster already exists
+    if kind get clusters 2>/dev/null | grep -q "message-publisher"; then
+        print_warning "Kind cluster 'message-publisher' already exists."
+        read -p "Do you want to recreate it? (y/N): " recreate
+        if [[ $recreate =~ ^[Yy]$ ]]; then
+            print_status "Deleting existing cluster..."
+            kind delete cluster --name message-publisher
+        else
+            print_success "Using existing cluster."
+            echo
+            setup_jenkins_integration
+            return
+        fi
+    fi
+
+    # Create cluster
+    print_status "Creating cluster 'message-publisher'..."
+    if kind create cluster --name=message-publisher; then
+        print_success "Kind cluster created successfully!"
+        
+        # Verify cluster
+        kubectl cluster-info --context kind-message-publisher
+        kubectl get nodes
+        
+        echo
+        setup_jenkins_integration
+    else
+        print_error "Failed to create Kind cluster"
+        print_status "Make sure Docker Desktop is running and try again"
+        echo
+        read -p "Press Enter to continue..."
+    fi
+}
+
+setup_jenkins_agent() {
+    print_status "Setting up Jenkins Agent & Credentials..."
+    echo
+
+    # Create jenkins work directory
+    print_status "Creating Jenkins work directory..."
+    mkdir -p ~/jenkins-work
+    print_success "Jenkins work directory created at: ~/jenkins-work"
+    echo
+
+    echo "================================================================"
+    echo "                 JENKINS AGENT & CREDENTIALS SETUP"
+    echo "================================================================"
+    echo
+    echo "STEP 1: Jenkins Agent Details"
+    echo "Node Name: $(hostname)-local-k8s"
+    echo "Work Directory: ~/jenkins-work"
+    echo
+    
+    read -p "Enter your EC2 Jenkins URL (e.g., http://your-ec2-ip:8080): " JENKINS_URL
+    if [[ -z "$JENKINS_URL" ]]; then
+        print_warning "Jenkins URL not provided. Using placeholder."
+        JENKINS_URL="http://your-ec2-jenkins:8080"
+    fi
+
+    echo
+    echo "STEP 2: Download Jenkins Agent"
+    echo "================================================================"
+    echo "Command to run:"
+    echo "curl -O ${JENKINS_URL}/jnlpJars/agent.jar"
+    echo
+    
+    read -p "Download Jenkins agent now? (y/N): " download_agent
+    if [[ $download_agent =~ ^[Yy]$ ]]; then
+        print_status "Downloading Jenkins agent..."
+        if curl -O "${JENKINS_URL}/jnlpJars/agent.jar"; then
+            print_success "Jenkins agent downloaded successfully!"
+        else
+            print_error "Failed to download Jenkins agent. Please check Jenkins URL."
+        fi
+    fi
+
+    echo
+    echo "STEP 3: Kubeconfig Credential Setup"
+    echo "================================================================"
+    echo "Kubeconfig file location: ~/.kube/config"
+    echo "Current cluster: $(kubectl config current-context 2>/dev/null || echo 'Not set')"
+    echo "Credential ID to use: kubeconfig-kind-$(hostname)-local-k8s"
+    echo
+    echo "Manual steps in Jenkins UI:"
+    echo "1. Go to Jenkins → Manage Jenkins → Credentials"
+    echo "2. Add new 'Secret file' credential"
+    echo "3. Upload file: ~/.kube/config" 
+    echo "4. ID: kubeconfig-kind-$(hostname)-local-k8s"
+    echo "5. Description: 'Kind cluster kubeconfig for $(hostname)'"
+
+    echo
+    read -p "Open kubeconfig directory? (y/N): " open_config
+    if [[ $open_config =~ ^[Yy]$ ]]; then
+        print_status "Opening kubeconfig directory..."
+        open ~/.kube/ 2>/dev/null || echo "Please navigate to: ~/.kube/"
+    fi
+
+    echo
+    echo "STEP 4: Jenkins Agent Connection"
+    echo "================================================================"
+    read -p "Enter your Jenkins agent secret (from team lead): " AGENT_SECRET
+    
+    if [[ -n "$AGENT_SECRET" ]]; then
+        echo
+        echo "Jenkins Agent Start Command:"
+        echo "================================================================"
+        AGENT_COMMAND="java -jar agent.jar -jnlpUrl ${JENKINS_URL}/computer/$(hostname)-local-k8s/jenkins-agent.jnlp -secret ${AGENT_SECRET} -workDir ~/jenkins-work"
+        echo "$AGENT_COMMAND"
+        echo
+        echo "This command has been saved to: start-jenkins-agent.sh"
+        
+        # Create start script
+        cat > start-jenkins-agent.sh << EOF
+#!/bin/bash
+echo "Starting Jenkins Agent for $(hostname)-local-k8s..."
+echo "Work Directory: ~/jenkins-work"
+echo "Jenkins URL: ${JENKINS_URL}"
+echo "Press Ctrl+C to stop the agent"
 echo
+$AGENT_COMMAND
+EOF
+        chmod +x start-jenkins-agent.sh
+        print_success "Jenkins agent start script created!"
+        
+        echo
+        read -p "Start Jenkins agent now? (y/N): " start_agent
+        if [[ $start_agent =~ ^[Yy]$ ]]; then
+            print_status "Starting Jenkins agent..."
+            exec ./start-jenkins-agent.sh
+        fi
+    else
+        print_warning "Agent secret not provided. You can run this option again later."
+    fi
 
-# ====================
-# STEP 2: Start Docker
-# ====================
-print_status "[2/6] Starting Docker Desktop..."
-echo
+    echo
+    read -p "Press Enter to continue..."
+}
 
-print_warning "Please ensure Docker Desktop is running before continuing."
-print_status "1. Launch Docker from Applications"
-print_status "2. Wait for Docker to fully start (whale icon in menu bar)"
-echo
-read -p "Press Enter when Docker Desktop is running..."
+setup_jenkins_integration() {
+    setup_jenkins_agent
+}
 
-# ====================
-# STEP 3: Create Kind Cluster
-# ====================
-print_status "[3/6] Creating standardized Kind Kubernetes cluster..."
-echo
+install_argocd() {
+    print_status "Installing ArgoCD..."
+    echo
 
-# Delete existing cluster if any
-kind delete cluster --name message-publisher >/dev/null 2>&1 || true
+    # Check if ArgoCD is already installed
+    if kubectl get namespace argocd >/dev/null 2>&1; then
+        print_warning "ArgoCD namespace already exists."
+        read -p "Do you want to reinstall ArgoCD? (y/N): " reinstall
+        if [[ ! $reinstall =~ ^[Yy]$ ]]; then
+            print_success "Using existing ArgoCD installation."
+            echo
+            read -p "Press Enter to continue..."
+            return
+        fi
+    fi
 
-# Create cluster with standardized config
-print_status "Creating cluster with standardized configuration..."
-if ! kind create cluster --config=kind-cluster-config.yaml --name=message-publisher; then
-    print_error "Failed to create Kind cluster"
-    print_status "Make sure Docker Desktop is running and try again"
-    exit 1
-fi
+    # Create namespace and install ArgoCD
+    kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+    kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 
-# Verify cluster
-kubectl cluster-info --context kind-message-publisher
-kubectl get nodes
+    print_status "Waiting for ArgoCD to be ready..."
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
 
-print_success "Kubernetes cluster created successfully!"
-echo
+    # Get ArgoCD admin password
+    ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
 
-# ====================
-# STEP 4: Install ArgoCD
-# ====================
-print_status "[4/6] Installing ArgoCD..."
-echo
+    echo
+    echo "================================================================"
+    echo "                   ARGOCD ADMIN CREDENTIALS"
+    echo "================================================================"
+    echo "Username: admin"
+    echo "Password: $ARGOCD_PASSWORD"
+    echo
+    echo "SAVE THIS PASSWORD! You'll need it to login to ArgoCD"
+    echo "================================================================"
+    echo
 
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+    print_success "ArgoCD installation completed!"
+    echo
+    read -p "Press Enter to continue..."
+}
 
-print_status "Waiting for ArgoCD to be ready (this may take 2-3 minutes)..."
-if ! kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s; then
-    print_warning "ArgoCD installation may still be in progress"
-    print_status "You can check status with: kubectl get pods -n argocd"
-fi
+apply_secrets() {
+    print_status "Applying secrets and configmaps..."
+    echo
 
-# Get ArgoCD admin password
-echo
-print_status "Getting ArgoCD admin password..."
-ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d)
+    # Create namespace first
+    print_status "Creating message-publisher namespace..."
+    kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -
+    
+    if kubectl apply -f k8s/secrets.yaml; then
+        print_success "Secrets and ConfigMap applied successfully!"
+    else
+        print_error "Failed to apply secrets. Make sure k8s/secrets.yaml exists."
+    fi
+    echo
+    read -p "Press Enter to continue..."
+}
 
-echo
-echo "================================================================"
-echo "                   ARGOCD ADMIN PASSWORD"
-echo "================================================================"
-echo "Username: admin"
-echo "Password: $ARGOCD_PASSWORD"
-echo
-echo "SAVE THIS PASSWORD! You'll need it to login to ArgoCD"
-echo "================================================================"
-echo
-read -p "Press Enter to continue..."
+start_port_forwarding() {
+    print_status "Starting port forwarding..."
+    echo
 
-# ====================
-# STEP 5: Jenkins Agent Setup
-# ====================
-print_status "[5/6] Jenkins Agent Setup Instructions..."
-echo
+    # Check if services exist
+    if ! kubectl get svc -n argocd argocd-server >/dev/null 2>&1; then
+        print_error "ArgoCD service not found. Please install ArgoCD first."
+        read -p "Press Enter to continue..."
+        return
+    fi
 
-echo "================================================================"
-echo "                 JENKINS AGENT CONNECTION"
-echo "================================================================"
-echo
-echo "TO COMPLETE SETUP, YOU NEED:"
-echo
-echo "1. Agent connection details from your team lead:"
-echo "   - Agent Name (e.g., mac-john-agent)"
-echo "   - Connection Command with secret"
-echo
-echo "2. Download Jenkins agent:"
-echo "   curl -O http://your-ec2-jenkins:8080/jnlpJars/agent.jar"
-echo
-echo "3. Start agent with provided command:"
-echo "   java -jar agent.jar -jnlpUrl http://your-ec2:8080/computer/your-agent/jenkins-agent.jnlp -secret your-secret -workDir ./jenkins-work"
-echo
-echo "4. Upload your kubeconfig to Jenkins with credential ID:"
-echo "   kubeconfig-kind-{your-agent-name}"
-echo
-echo "================================================================"
-echo
+    if ! kubectl get svc -n message-publisher message-publisher-frontend-service >/dev/null 2>&1; then
+        print_error "Frontend service not found. Please deploy the application first."
+        read -p "Press Enter to continue..."
+        return
+    fi
 
-# Create jenkins work directory
-mkdir -p ~/jenkins-work
-
-# ====================
-# STEP 6: Port Forwarding Helper
-# ====================
-print_status "[6/6] Creating port forwarding scripts..."
-echo
-
-# Create frontend port forwarding script
-cat > port-forward-frontend.sh << 'EOF'
+    # Create port forwarding scripts
+    cat > port-forward-frontend.sh << 'EOF'
 #!/bin/bash
 echo "Starting frontend port forwarding..."
 echo "Access frontend at: http://localhost:3000"
-kubectl port-forward -n message-publisher svc/message-publisher-frontend 3000:80
+kubectl port-forward -n message-publisher svc/message-publisher-frontend-service 3000:80
 EOF
 
-# Create ArgoCD port forwarding script
-cat > port-forward-argocd.sh << EOF
+    # Get ArgoCD password for the script
+    ARGOCD_PASSWORD=$(kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" 2>/dev/null | base64 -d || echo "admin")
+    
+    cat > port-forward-argocd.sh << EOF
 #!/bin/bash
 echo "Starting ArgoCD port forwarding..."
 echo "Access ArgoCD at: https://localhost:8080"
@@ -223,22 +410,12 @@ echo "Password: $ARGOCD_PASSWORD"
 kubectl port-forward -n argocd svc/argocd-server 8080:443
 EOF
 
-# Create API port forwarding script  
-cat > port-forward-api.sh << 'EOF'
+    cat > start-both-services.sh << EOF
 #!/bin/bash
-echo "Starting API port forwarding..."
-echo "Access API at: http://localhost:8000"
-kubectl port-forward -n message-publisher svc/message-publisher-api 8000:8000
-EOF
-
-# Create combined port forwarding script
-cat > start-all-services.sh << EOF
-#!/bin/bash
-echo "Starting all port forwarding services..."
+echo "Starting both port forwarding services..."
 echo
 echo "Frontend will be available at: http://localhost:3000"
 echo "ArgoCD will be available at: https://localhost:8080"
-echo "API will be available at: http://localhost:8000"
 echo
 echo "ArgoCD Login:"
 echo "Username: admin"
@@ -248,60 +425,88 @@ echo "Press Ctrl+C to stop all services"
 echo
 
 # Start services in background
-kubectl port-forward -n message-publisher svc/message-publisher-frontend 3000:80 &
+kubectl port-forward -n message-publisher svc/message-publisher-frontend-service 3000:80 &
 FRONTEND_PID=\$!
 
 kubectl port-forward -n argocd svc/argocd-server 8080:443 &
 ARGOCD_PID=\$!
 
-kubectl port-forward -n message-publisher svc/message-publisher-api 8000:8000 &
-API_PID=\$!
-
-echo "All services started!"
-echo "PIDs: Frontend=\$FRONTEND_PID, ArgoCD=\$ARGOCD_PID, API=\$API_PID"
+echo "Both services started!"
+echo "PIDs: Frontend=\$FRONTEND_PID, ArgoCD=\$ARGOCD_PID"
 echo
 
 # Wait for interrupt
-trap 'echo "Stopping all services..."; kill \$FRONTEND_PID \$ARGOCD_PID \$API_PID 2>/dev/null; exit' INT
+trap 'echo "Stopping all services..."; kill \$FRONTEND_PID \$ARGOCD_PID 2>/dev/null; exit' INT
 
 # Keep script running
 wait
 EOF
 
-# Make scripts executable
-chmod +x port-forward-frontend.sh
-chmod +x port-forward-argocd.sh  
-chmod +x port-forward-api.sh
-chmod +x start-all-services.sh
+    # Make scripts executable
+    chmod +x port-forward-frontend.sh port-forward-argocd.sh start-both-services.sh
 
-echo
-echo "================================================================"
-echo "                    SETUP COMPLETED!"
-echo "================================================================"
-echo
-print_success "WHAT'S BEEN SET UP:"
-echo "✓ Java 21, Node.js, Git, Docker, kubectl, Kind installed"
-echo "✓ Kind Kubernetes cluster 'message-publisher' created"
-echo "✓ ArgoCD installed and configured"
-echo "✓ Port forwarding scripts created"
-echo
-print_status "NEXT STEPS:"
-echo "1. Get Jenkins agent connection details from team lead"
-echo "2. Download and start Jenkins agent"
-echo "3. Upload kubeconfig to Jenkins credentials"
-echo "4. Run your first build in Jenkins"
-echo "5. Use port forwarding scripts to access applications:"
-echo
-echo "   ./port-forward-frontend.sh  - Access frontend"
-echo "   ./port-forward-argocd.sh    - Access ArgoCD"  
-echo "   ./port-forward-api.sh       - Access API"
-echo "   ./start-all-services.sh     - Start all services"
-echo
-print_status "ARGOCD LOGIN:"
-echo "Username: admin"
-echo "Password: $ARGOCD_PASSWORD"
-echo
-print_status "DOCUMENTATION: See TEAM_SETUP_GUIDE.md for detailed instructions"
-echo
-echo "================================================================"
-echo
+    print_success "Port forwarding scripts created!"
+    echo "Available scripts:"
+    echo "  ./port-forward-frontend.sh  - Start frontend port forwarding"
+    echo "  ./port-forward-argocd.sh    - Start ArgoCD port forwarding"
+    echo "  ./start-both-services.sh    - Start both services"
+    echo
+
+    read -p "Do you want to start port forwarding now? (y/N): " start_now
+    if [[ $start_now =~ ^[Yy]$ ]]; then
+        print_status "Starting port forwarding for both services..."
+        exec ./start-both-services.sh
+    fi
+
+    echo
+    read -p "Press Enter to continue..."
+}
+
+full_setup() {
+    print_status "Starting full setup..."
+    install_dev_tools
+    start_docker
+    create_kind_cluster
+    install_argocd
+    apply_secrets
+    start_port_forwarding
+}
+
+# Main loop
+while true; do
+    show_menu
+    case $choice in
+        1)
+            install_dev_tools
+            ;;
+        2)
+            start_docker
+            ;;
+        3)
+            create_kind_cluster
+            ;;
+        4)
+            setup_jenkins_agent
+            ;;
+        5)
+            install_argocd
+            ;;
+        6)
+            apply_secrets
+            ;;
+        7)
+            start_port_forwarding
+            ;;
+        8)
+            full_setup
+            ;;
+        9)
+            print_status "Goodbye!"
+            exit 0
+            ;;
+        *)
+            print_error "Invalid choice. Please select 1-9."
+            read -p "Press Enter to continue..."
+            ;;
+    esac
+done

@@ -2,36 +2,58 @@
 setlocal enabledelayedexpansion
 
 REM =============================================================================
-REM                MESSAGE PUBLISHER - COMPLETE WINDOWS SETUP
+REM                MESSAGE PUBLISHER - WINDOWS SETUP
 REM =============================================================================
-REM This script sets up everything needed for local development:
-REM 1. Installs all required software (Java, Node.js, Docker, kubectl, kind)
-REM 2. Creates standardized Kind Kubernetes cluster  
-REM 3. Installs and configures ArgoCD
-REM 4. Sets up Jenkins agent connection
-REM 5. Provides port forwarding commands for local access
+REM Interactive setup script with menu options
 REM =============================================================================
 
+:MAIN_MENU
+cls
 echo.
 echo ================================================================
 echo            MESSAGE PUBLISHER - WINDOWS SETUP
 echo ================================================================
 echo.
+echo What would you like to do?
+echo.
+echo 1. Install Development Tools (Java, Node.js, Docker, kubectl, Kind)
+echo 2. Start Docker Desktop
+echo 3. Create Kind Kubernetes Cluster
+echo 4. Setup Jenkins Agent ^& Credentials
+echo 5. Install ArgoCD
+echo 6. Apply Secrets ^& ConfigMap
+echo 7. Start Port Forwarding (Frontend ^& ArgoCD)
+echo 8. Full Setup (All above steps)
+echo 9. Exit
+echo.
+set /p choice="Enter your choice (1-9): "
+
+if "%choice%"=="1" goto :INSTALL_TOOLS
+if "%choice%"=="2" goto :START_DOCKER
+if "%choice%"=="3" goto :CREATE_CLUSTER
+if "%choice%"=="4" goto :JENKINS_AGENT
+if "%choice%"=="5" goto :INSTALL_ARGOCD
+if "%choice%"=="6" goto :APPLY_SECRETS
+if "%choice%"=="7" goto :PORT_FORWARD
+if "%choice%"=="8" goto :FULL_SETUP
+if "%choice%"=="9" goto :EXIT
+echo Invalid choice. Please select 1-9.
+pause
+goto :MAIN_MENU
+
+:INSTALL_TOOLS
+echo.
+echo [INFO] Installing development tools...
+echo.
 
 REM Check if running as administrator
 net session >nul 2>&1
 if %errorLevel% neq 0 (
-    echo ERROR: This script must be run as Administrator
+    echo ERROR: This option requires Administrator privileges
     echo Right-click on the script and select "Run as administrator"
     pause
-    exit /b 1
+    goto :MAIN_MENU
 )
-
-REM ====================
-REM STEP 1: Install Software
-REM ====================
-echo [1/6] Installing required software...
-echo.
 
 REM Install Chocolatey if not present
 where choco >nul 2>&1
@@ -39,211 +61,476 @@ if %errorLevel% neq 0 (
     echo Installing Chocolatey package manager...
     powershell -Command "Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))"
     call refreshenv
+) else (
+    echo Chocolatey already installed
 )
 
-echo Installing Java 21...
-choco install openjdk21 -y --force
+REM Check and install Java 21 if not present
+java -version 2>nul | findstr "21\." >nul
+if %errorLevel% neq 0 (
+    echo Installing Java 21...
+    choco install openjdk21 -y
+) else (
+    echo Java 21 already installed
+)
 
-echo Installing Node.js LTS...
-choco install nodejs-lts -y --force
+REM Check and install Node.js 18 if not present
+where node >nul 2>&1
+if %errorLevel% neq 0 (
+    echo Installing Node.js 18...
+    choco install nodejs --version=18.20.4 -y
+) else (
+    echo Node.js already installed
+)
 
-echo Installing Git...
-choco install git -y --force
+REM Check and install Git if not present
+where git >nul 2>&1
+if %errorLevel% neq 0 (
+    echo Installing Git...
+    choco install git -y
+) else (
+    echo Git already installed
+)
 
-echo Installing kubectl...
-choco install kubernetes-cli -y --force
+REM Check and install kubectl if not present
+where kubectl >nul 2>&1
+if %errorLevel% neq 0 (
+    echo Installing kubectl...
+    choco install kubernetes-cli -y
+) else (
+    echo kubectl already installed
+)
 
-echo Installing Kind...
-choco install kind -y --force
+REM Check and install Kind if not present
+where kind >nul 2>&1
+if %errorLevel% neq 0 (
+    echo Installing Kind...
+    choco install kind -y
+) else (
+    echo Kind already installed
+)
 
-echo Installing Docker Desktop...
-choco install docker-desktop -y --force
+REM Check and install Docker Desktop if not present
+where docker >nul 2>&1
+if %errorLevel% neq 0 (
+    echo Installing Docker Desktop...
+    choco install docker-desktop -y
+) else (
+    echo Docker already installed
+)
 
 REM Refresh environment variables
 call refreshenv
 
 echo.
-echo Software installation completed!
-echo.
-
-REM ====================
-REM STEP 2: Start Docker
-REM ====================
-echo [2/6] Starting Docker Desktop...
-echo.
-
-echo Please ensure Docker Desktop is running before continuing.
-echo Check that the Docker icon in system tray shows "Docker Desktop is running"
+echo [SUCCESS] Development tools installation completed!
 echo.
 pause
+goto :MAIN_MENU
 
-REM ====================
-REM STEP 3: Create Kind Cluster
-REM ====================
-echo [3/6] Creating standardized Kind Kubernetes cluster...
+:START_DOCKER
+echo.
+echo [INFO] Checking Docker Desktop status...
 echo.
 
-REM Delete existing cluster if any
-kind delete cluster --name message-publisher >nul 2>&1
-
-REM Create cluster with standardized config
-echo Creating cluster with standardized configuration...
-kind create cluster --config=kind-cluster-config.yaml --name=message-publisher
-
-if %errorLevel% neq 0 (
-    echo ERROR: Failed to create Kind cluster
-    echo Make sure Docker Desktop is running and try again
+docker ps >nul 2>&1
+if %errorLevel% equ 0 (
+    echo [SUCCESS] Docker Desktop is already running!
+) else (
+    echo [WARNING] Docker Desktop is not running.
+    echo Please start Docker Desktop manually:
+    echo 1. Open Docker Desktop from Start Menu
+    echo 2. Wait for Docker to fully start
+    echo.
     pause
-    exit /b 1
+    
+    REM Verify Docker is running
+    docker ps >nul 2>&1
+    if %errorLevel% equ 0 (
+        echo [SUCCESS] Docker Desktop is now running!
+    ) else (
+        echo [ERROR] Docker Desktop is still not running. Please check and try again.
+    )
 )
 
-REM Verify cluster
-kubectl cluster-info --context kind-message-publisher
-kubectl get nodes
-
-echo.
-echo Kubernetes cluster created successfully!
-echo.
-
-REM ====================
-REM STEP 4: Install ArgoCD
-REM ====================
-echo [4/6] Installing ArgoCD...
-echo.
-
-kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-
-echo Waiting for ArgoCD to be ready (this may take 2-3 minutes)...
-kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
-
-if %errorLevel% neq 0 (
-    echo WARNING: ArgoCD installation may still be in progress
-    echo You can check status with: kubectl get pods -n argocd
-)
-
-REM Get ArgoCD admin password
-echo.
-echo Getting ArgoCD admin password...
-for /f "tokens=*" %%i in ('kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath^="{.data.password}"') do set ARGOCD_PASSWORD_B64=%%i
-
-REM Decode base64 password using PowerShell
-for /f "tokens=*" %%i in ('powershell -Command "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('%ARGOCD_PASSWORD_B64%'))"') do set ARGOCD_PASSWORD=%%i
-
-echo.
-echo ================================================================
-echo                   ARGOCD ADMIN PASSWORD
-echo ================================================================
-echo Username: admin
-echo Password: %ARGOCD_PASSWORD%
-echo.
-echo SAVE THIS PASSWORD! You'll need it to login to ArgoCD
-echo ================================================================
 echo.
 pause
+goto :MAIN_MENU
 
-REM ====================
-REM STEP 5: Jenkins Agent Setup
-REM ====================
-echo [5/6] Jenkins Agent Setup Instructions...
+:CREATE_CLUSTER
+echo.
+echo [INFO] Creating Kind Kubernetes cluster...
 echo.
 
+REM Check if cluster already exists
+kind get clusters 2>nul | findstr "message-publisher" >nul
+if %errorLevel% equ 0 (
+    echo [WARNING] Kind cluster 'message-publisher' already exists.
+    set /p recreate="Do you want to recreate it? (y/N): "
+    if /I "!recreate!"=="y" (
+        echo [INFO] Deleting existing cluster...
+        kind delete cluster --name message-publisher
+    ) else (
+        echo [SUCCESS] Using existing cluster.
+        call :JENKINS_SETUP
+        goto :MAIN_MENU
+    )
+)
+
+REM Create cluster
+echo [INFO] Creating cluster 'message-publisher'...
+kind create cluster --name=message-publisher
+
+if %errorLevel% equ 0 (
+    echo [SUCCESS] Kind cluster created successfully!
+    
+    REM Verify cluster
+    kubectl cluster-info --context kind-message-publisher
+    kubectl get nodes
+    
+    echo.
+    call :JENKINS_SETUP
+) else (
+    echo [ERROR] Failed to create Kind cluster
+    echo Make sure Docker Desktop is running and try again
+    echo.
+    pause
+)
+goto :MAIN_MENU
+
+:JENKINS_SETUP
+echo.
+echo [INFO] Jenkins Integration Setup Required
+echo.
 echo ================================================================
-echo                 JENKINS AGENT CONNECTION
+echo                 JENKINS SETUP INSTRUCTIONS
 echo ================================================================
 echo.
-echo TO COMPLETE SETUP, YOU NEED:
+echo To complete Jenkins integration, you need to:
 echo.
-echo 1. Agent connection details from your team lead:
-echo    - Agent Name (e.g., windows-john-agent)
-echo    - Connection Command with secret
+echo 1. CREATE JENKINS NODE:
+echo    - Go to Jenkins: Manage Jenkins - Nodes
+echo    - Click 'New Node'
+echo    - Name: %COMPUTERNAME%-local-k8s
+echo    - Type: Permanent Agent
+echo    - Configure with your local machine details
 echo.
-echo 2. Download Jenkins agent:
-echo    curl -O http://your-ec2-jenkins:8080/jnlpJars/agent.jar
+echo 2. UPLOAD KUBECONFIG CREDENTIAL:
+echo    - Go to Jenkins: Manage Jenkins - Credentials
+echo    - Add new 'Secret file' credential
+echo    - Upload file: %USERPROFILE%\.kube\config
+echo    - ID: kubeconfig-kind-%COMPUTERNAME%
+echo    - Description: 'Kind cluster kubeconfig for %COMPUTERNAME%'
 echo.
-echo 3. Start agent with provided command:
-echo    java -jar agent.jar -jnlpUrl http://your-ec2:8080/computer/your-agent/jenkins-agent.jnlp -secret your-secret -workDir ./jenkins-work
+echo 3. KUBECONFIG FILE LOCATION:
+echo    File to upload: %USERPROFILE%\.kube\config
+for /f "tokens=*" %%i in ('kubectl config current-context 2^>nul') do set CURRENT_CONTEXT=%%i
+echo    Current cluster: !CURRENT_CONTEXT!
 echo.
-echo 4. Upload your kubeconfig to Jenkins with credential ID:
-echo    kubeconfig-kind-{your-agent-name}
+echo 4. SETUP JENKINS AGENT:
+echo    - Download Jenkins agent from your EC2 Jenkins:
+echo      curl -O http://your-ec2-jenkins:8080/jnlpJars/agent.jar
+echo    - Get agent connection command from team lead
+echo    - Start agent with provided secret and work directory
+echo    - Create work directory: mkdir C:\jenkins-work
+echo.
+echo 5. VERIFY CREDENTIAL:
+echo    - Test the credential in Jenkins
+echo    - Run a test pipeline to ensure connectivity
+echo    - Credential ID should match: kubeconfig-kind-%COMPUTERNAME%-local-k8s
 echo.
 echo ================================================================
+echo.
+
+set /p open_config="Do you want to open the kubeconfig file location? (y/N): "
+if /I "!open_config!"=="y" (
+    echo [INFO] Opening kubeconfig directory...
+    explorer %USERPROFILE%\.kube\
+)
+
+echo.
+set /p jenkins_done="Have you completed the Jenkins setup? (y/N): "
+if /I "!jenkins_done!"=="y" (
+    echo [SUCCESS] Jenkins integration setup completed!
+) else (
+    echo [WARNING] Please complete Jenkins setup before running builds.
+    echo [INFO] You can return to this menu option later.
+)
+
+echo.
+pause
+return
+
+:JENKINS_AGENT
+echo.
+echo [INFO] Setting up Jenkins Agent ^& Credentials...
 echo.
 
 REM Create jenkins work directory
+echo [INFO] Creating Jenkins work directory...
 mkdir C:\jenkins-work 2>nul
-
-REM ====================
-REM STEP 6: Port Forwarding Helper
-REM ====================
-echo [6/6] Creating port forwarding scripts...
+echo [SUCCESS] Jenkins work directory created at: C:\jenkins-work
 echo.
+
+echo ================================================================
+echo                 JENKINS AGENT ^& CREDENTIALS SETUP
+echo ================================================================
+echo.
+echo STEP 1: Jenkins Agent Details
+echo Node Name: %COMPUTERNAME%-local-k8s
+echo Node Labels: local-k8s (IMPORTANT: Add this label!)
+echo Work Directory: C:\jenkins-work
+echo.
+
+set /p JENKINS_URL="Enter your EC2 Jenkins URL (e.g., http://your-ec2-ip:8080): "
+if "!JENKINS_URL!"=="" (
+    echo [WARNING] Jenkins URL not provided. Using placeholder.
+    set JENKINS_URL=http://your-ec2-jenkins:8080
+)
+
+echo.
+echo STEP 2: Download Jenkins Agent
+echo ================================================================
+echo Command to run:
+echo curl -O !JENKINS_URL!/jnlpJars/agent.jar
+echo.
+
+set /p download_agent="Download Jenkins agent now? (y/N): "
+if /I "!download_agent!"=="y" (
+    echo [INFO] Downloading Jenkins agent...
+    curl -O "!JENKINS_URL!/jnlpJars/agent.jar"
+    if %errorLevel% equ 0 (
+        echo [SUCCESS] Jenkins agent downloaded successfully!
+    ) else (
+        echo [ERROR] Failed to download Jenkins agent. Please check Jenkins URL.
+    )
+)
+
+echo.
+echo STEP 3: Kubeconfig Credential Setup
+echo ================================================================
+echo Kubeconfig file location: %USERPROFILE%\.kube\config
+for /f "tokens=*" %%i in ('kubectl config current-context 2^>nul') do set CURRENT_CONTEXT=%%i
+if "!CURRENT_CONTEXT!"=="" set CURRENT_CONTEXT=Not set
+echo Current cluster: !CURRENT_CONTEXT!
+echo Credential ID to use: kubeconfig-kind-%COMPUTERNAME%-local-k8s
+echo.
+echo Manual steps in Jenkins UI:
+echo 1. Go to Jenkins - Manage Jenkins - Credentials
+echo 2. Add new 'Secret file' credential
+echo 3. Upload file: %USERPROFILE%\.kube\config
+echo 4. ID: kubeconfig-kind-%COMPUTERNAME%-local-k8s
+echo 5. Description: 'Kind cluster kubeconfig for %COMPUTERNAME%'
+
+echo.
+set /p open_config="Open kubeconfig directory? (y/N): "
+if /I "!open_config!"=="y" (
+    echo [INFO] Opening kubeconfig directory...
+    explorer %USERPROFILE%\.kube\
+)
+
+echo.
+echo STEP 4: Jenkins Agent Connection
+echo ================================================================
+set /p AGENT_SECRET="Enter your Jenkins agent secret (from team lead): "
+
+if NOT "!AGENT_SECRET!"=="" (
+    echo.
+    echo Jenkins Agent Start Command:
+    echo ================================================================
+    set AGENT_COMMAND=java -jar agent.jar -url !JENKINS_URL! -secret !AGENT_SECRET! -name %COMPUTERNAME%-local-k8s -workDir C:\jenkins-work
+    echo !AGENT_COMMAND!
+    echo.
+    echo This command has been saved to: start-jenkins-agent.bat
+    
+    REM Create start script
+    echo @echo off > start-jenkins-agent.bat
+    echo echo Starting Jenkins Agent for %COMPUTERNAME%-local-k8s... >> start-jenkins-agent.bat
+    echo echo Work Directory: C:\jenkins-work >> start-jenkins-agent.bat
+    echo echo Jenkins URL: !JENKINS_URL! >> start-jenkins-agent.bat
+    echo echo Press Ctrl+C to stop the agent >> start-jenkins-agent.bat
+    echo echo. >> start-jenkins-agent.bat
+    echo !AGENT_COMMAND! >> start-jenkins-agent.bat
+    
+    echo [SUCCESS] Jenkins agent start script created!
+    
+    echo.
+    set /p start_agent="Start Jenkins agent now? (y/N): "
+    if /I "!start_agent!"=="y" (
+        echo [INFO] Starting Jenkins agent...
+        start-jenkins-agent.bat
+        goto :EXIT
+    )
+) else (
+    echo [WARNING] Agent secret not provided. You can run this option again later.
+)
+
+echo.
+pause
+goto :MAIN_MENU
+
+:INSTALL_ARGOCD
+echo.
+echo [INFO] Installing ArgoCD...
+echo.
+
+REM Check if ArgoCD is already installed
+kubectl get namespace argocd >nul 2>&1
+if %errorLevel% equ 0 (
+    echo [WARNING] ArgoCD namespace already exists.
+    set /p reinstall="Do you want to reinstall ArgoCD? (y/N): "
+    if /I NOT "!reinstall!"=="y" (
+        echo [SUCCESS] Using existing ArgoCD installation.
+        pause
+        goto :MAIN_MENU
+    )
+)
+
+REM Create namespace and install ArgoCD
+kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+
+echo [INFO] Waiting for ArgoCD to be ready...
+kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+
+if %errorLevel% equ 0 (
+    REM Get ArgoCD admin password
+    for /f "tokens=*" %%i in ('kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath^="{.data.password}"') do set ARGOCD_PASSWORD_B64=%%i
+    for /f "tokens=*" %%i in ('powershell -Command "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('%ARGOCD_PASSWORD_B64%'))"') do set ARGOCD_PASSWORD=%%i
+
+    echo.
+    echo ================================================================
+    echo                   ARGOCD ADMIN CREDENTIALS
+    echo ================================================================
+    echo Username: admin
+    echo Password: !ARGOCD_PASSWORD!
+    echo.
+    echo SAVE THIS PASSWORD! You'll need it to login to ArgoCD
+    echo ================================================================
+    echo.
+
+    echo [SUCCESS] ArgoCD installation completed!
+) else (
+    echo [WARNING] ArgoCD installation may still be in progress
+    echo You can check status with: kubectl get pods -n argocd
+)
+
+echo.
+pause
+goto :MAIN_MENU
+
+:APPLY_SECRETS
+echo.
+echo [INFO] Applying secrets and configmaps...
+echo.
+
+REM Create namespace first
+echo [INFO] Creating message-publisher namespace...
+kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -
+
+kubectl apply -f k8s/secrets.yaml
+
+if %errorLevel% equ 0 (
+    echo [SUCCESS] Secrets and ConfigMap applied successfully!
+) else (
+    echo [ERROR] Failed to apply secrets. Make sure k8s/secrets.yaml exists.
+)
+
+echo.
+pause
+goto :MAIN_MENU
+
+:PORT_FORWARD
+echo.
+echo [INFO] Setting up port forwarding...
+echo.
+
+REM Check if services exist
+kubectl get svc -n argocd argocd-server >nul 2>&1
+if %errorLevel% neq 0 (
+    echo [ERROR] ArgoCD service not found. Please install ArgoCD first.
+    pause
+    goto :MAIN_MENU
+)
+
+kubectl get svc -n message-publisher message-publisher-frontend-service >nul 2>&1
+if %errorLevel% neq 0 (
+    echo [ERROR] Frontend service not found. Please deploy the application first.
+    pause
+    goto :MAIN_MENU
+)
 
 REM Create frontend port forwarding script
 echo @echo off > port-forward-frontend.bat
 echo echo Starting frontend port forwarding... >> port-forward-frontend.bat
 echo echo Access frontend at: http://localhost:3000 >> port-forward-frontend.bat
-echo kubectl port-forward -n message-publisher svc/message-publisher-frontend 3000:80 >> port-forward-frontend.bat
+echo kubectl port-forward -n message-publisher svc/message-publisher-frontend-service 3000:80 >> port-forward-frontend.bat
 
-REM Create ArgoCD port forwarding script
+REM Get ArgoCD password and create ArgoCD port forwarding script
+for /f "tokens=*" %%i in ('kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath^="{.data.password}" 2^>nul') do set ARGOCD_PASSWORD_B64=%%i
+for /f "tokens=*" %%i in ('powershell -Command "[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String('%ARGOCD_PASSWORD_B64%'))" 2^>nul') do set ARGOCD_PASSWORD=%%i
+if "!ARGOCD_PASSWORD!"=="" set ARGOCD_PASSWORD=admin
+
 echo @echo off > port-forward-argocd.bat
 echo echo Starting ArgoCD port forwarding... >> port-forward-argocd.bat
 echo echo Access ArgoCD at: https://localhost:8080 >> port-forward-argocd.bat
 echo echo Username: admin >> port-forward-argocd.bat
-echo echo Password: %ARGOCD_PASSWORD% >> port-forward-argocd.bat
+echo echo Password: !ARGOCD_PASSWORD! >> port-forward-argocd.bat
 echo kubectl port-forward -n argocd svc/argocd-server 8080:443 >> port-forward-argocd.bat
 
-REM Create API port forwarding script  
-echo @echo off > port-forward-api.bat
-echo echo Starting API port forwarding... >> port-forward-api.bat
-echo echo Access API at: http://localhost:8000 >> port-forward-api.bat
-echo kubectl port-forward -n message-publisher svc/message-publisher-api 8000:8000 >> port-forward-api.bat
-
 REM Create combined port forwarding script
-echo @echo off > start-all-services.bat
-echo echo Starting all port forwarding services... >> start-all-services.bat
-echo echo. >> start-all-services.bat
-echo echo Frontend will be available at: http://localhost:3000 >> start-all-services.bat
-echo echo ArgoCD will be available at: https://localhost:8080 >> start-all-services.bat
-echo echo API will be available at: http://localhost:8000 >> start-all-services.bat
-echo echo. >> start-all-services.bat
-echo echo Press Ctrl+C to stop all services >> start-all-services.bat
-echo echo. >> start-all-services.bat
-echo start "Frontend" cmd /k "kubectl port-forward -n message-publisher svc/message-publisher-frontend 3000:80" >> start-all-services.bat
-echo start "ArgoCD" cmd /k "kubectl port-forward -n argocd svc/argocd-server 8080:443" >> start-all-services.bat
-echo start "API" cmd /k "kubectl port-forward -n message-publisher svc/message-publisher-api 8000:8000" >> start-all-services.bat
-echo echo All services started in separate windows! >> start-all-services.bat
-echo pause >> start-all-services.bat
+echo @echo off > start-both-services.bat
+echo echo Starting both port forwarding services... >> start-both-services.bat
+echo echo. >> start-both-services.bat
+echo echo Frontend will be available at: http://localhost:3000 >> start-both-services.bat
+echo echo ArgoCD will be available at: https://localhost:8080 >> start-both-services.bat
+echo echo. >> start-both-services.bat
+echo echo ArgoCD Login: >> start-both-services.bat
+echo echo Username: admin >> start-both-services.bat
+echo echo Password: !ARGOCD_PASSWORD! >> start-both-services.bat
+echo echo. >> start-both-services.bat
+echo echo Press Ctrl+C to stop all services >> start-both-services.bat
+echo echo. >> start-both-services.bat
+echo start "Frontend" cmd /k "kubectl port-forward -n message-publisher svc/message-publisher-frontend-service 3000:80" >> start-both-services.bat
+echo start "ArgoCD" cmd /k "kubectl port-forward -n argocd svc/argocd-server 8080:443" >> start-both-services.bat
+echo echo Both services started in separate windows! >> start-both-services.bat
+echo pause >> start-both-services.bat
 
+echo [SUCCESS] Port forwarding scripts created!
+echo Available scripts:
+echo   port-forward-frontend.bat  - Start frontend port forwarding
+echo   port-forward-argocd.bat    - Start ArgoCD port forwarding  
+echo   start-both-services.bat    - Start both services
 echo.
-echo ================================================================
-echo                    SETUP COMPLETED!
-echo ================================================================
-echo.
-echo WHAT'S BEEN SET UP:
-echo ✓ Java 21, Node.js, Git, Docker, kubectl, Kind installed
-echo ✓ Kind Kubernetes cluster 'message-publisher' created
-echo ✓ ArgoCD installed and configured
-echo ✓ Port forwarding scripts created
-echo.
-echo NEXT STEPS:
-echo 1. Get Jenkins agent connection details from team lead
-echo 2. Download and start Jenkins agent
-echo 3. Upload kubeconfig to Jenkins credentials
-echo 4. Run your first build in Jenkins
-echo 5. Use port forwarding scripts to access applications:
-echo.
-echo    port-forward-frontend.bat  - Access frontend
-echo    port-forward-argocd.bat    - Access ArgoCD  
-echo    port-forward-api.bat       - Access API
-echo    start-all-services.bat     - Start all services
-echo.
-echo ARGOCD LOGIN:
-echo Username: admin
-echo Password: %ARGOCD_PASSWORD%
-echo.
-echo DOCUMENTATION: See TEAM_SETUP_GUIDE.md for detailed instructions
-echo.
-echo ================================================================
+
+set /p start_now="Do you want to start port forwarding now? (y/N): "
+if /I "!start_now!"=="y" (
+    echo [INFO] Starting port forwarding for both services...
+    start-both-services.bat
+    goto :EXIT
+)
+
 echo.
 pause
+goto :MAIN_MENU
+
+:FULL_SETUP
+echo.
+echo [INFO] Starting full setup...
+echo.
+
+call :INSTALL_TOOLS
+call :START_DOCKER
+call :CREATE_CLUSTER
+call :INSTALL_ARGOCD
+call :APPLY_SECRETS
+call :PORT_FORWARD
+
+goto :MAIN_MENU
+
+:EXIT
+echo.
+echo [INFO] Goodbye!
+echo.
+pause
+exit /b 0
