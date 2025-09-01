@@ -236,7 +236,7 @@ const MessagePublisher = () => {
           {/* Message Form */}
           <div className="bg-white rounded-lg shadow-xl p-6">
             <h2 className="text-xl font-semibold text-gray-700 mb-4">
-              Send Message to receipient DISO DANCE
+              Send Message to receipient TESTImagePush
             </h2>
 
             <form onSubmit={handleSubmit} className="space-y-4">
