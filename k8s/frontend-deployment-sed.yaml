@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: ${FRONTEND_IMAGE:-message-publisher-frontend:latest}
+        image: message-publisher-frontend:58-56ef9c6-20250901-234051
         imagePullPolicy: Never
         ports:
         - containerPort: 80

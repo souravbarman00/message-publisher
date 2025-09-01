@@ -478,29 +478,67 @@ pipeline {
             }
         }
 
-        // NEW STAGE: Update Kubernetes deployments with correct image tags
-        stage('Update Deployment Images') {
+       stage('Deploy to Kubernetes & Update ArgoCD') {
             steps {
                 withCredentials([file(credentialsId: "kubeconfig-kind-${env.NODE_NAME}", variable: 'KUBECONFIG')]) {
                     script {
                         try {
-                            // Update deployment image tags to use versioned tags
+                            def currentContext
                             if (isUnix()) {
-                                sh """
-                                    kubectl set image deployment/message-publisher-api api=${env.API_IMAGE} -n message-publisher
-                                    kubectl set image deployment/message-publisher-frontend frontend=${env.FRONTEND_IMAGE} -n message-publisher
-                                    kubectl set image deployment/message-publisher-workers workers=${env.WORKERS_IMAGE} -n message-publisher
-                                """
+                                currentContext = sh(script: 'kubectl config current-context', returnStdout: true).trim()
+                                sh 'kubectl get nodes'
+                                sh "docker images | grep ${PROJECT_NAME}"
                             } else {
-                                bat """
-                                    kubectl set image deployment/message-publisher-api api=${env.API_IMAGE} -n message-publisher
-                                    kubectl set image deployment/message-publisher-frontend frontend=${env.FRONTEND_IMAGE} -n message-publisher
-                                    kubectl set image deployment/message-publisher-workers workers=${env.WORKERS_IMAGE} -n message-publisher
-                                """
+                                currentContext = bat(script: '@echo off && kubectl config current-context', returnStdout: true).trim()
+                                bat 'kubectl get nodes'
+                                bat "docker images | findstr ${PROJECT_NAME}"
                             }
-                            echo "Deployment images updated successfully"
+                            echo "Using Kubernetes context: ${currentContext}"
+                            
+                            // Deploy to Kubernetes with versioned images
+                            if (isUnix()) {
+                                sh 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
+                                sh '''
+                                    # Apply secrets/configmaps first
+                                    kubectl apply -f k8s/secrets.yaml -n message-publisher
+                                    
+                                    # Substitute environment variables in YAML and apply
+                                    API_IMAGE="${API_IMAGE}" WORKERS_IMAGE="${WORKERS_IMAGE}" FRONTEND_IMAGE="${FRONTEND_IMAGE}" \\
+                                    envsubst < k8s/api-deployment.yaml | kubectl apply -f - -n message-publisher
+                                    
+                                    API_IMAGE="${API_IMAGE}" WORKERS_IMAGE="${WORKERS_IMAGE}" FRONTEND_IMAGE="${FRONTEND_IMAGE}" \\
+                                    envsubst < k8s/workers-deployment.yaml | kubectl apply -f - -n message-publisher
+                                    
+                                    API_IMAGE="${API_IMAGE}" WORKERS_IMAGE="${WORKERS_IMAGE}" FRONTEND_IMAGE="${FRONTEND_IMAGE}" \\
+                                    envsubst < k8s/frontend-deployment.yaml | kubectl apply -f - -n message-publisher
+                                    
+                                    kubectl apply -f k8s/argocd-application.yaml
+                                '''
+                                sh 'kubectl get pods -n message-publisher'
+                            } else {
+                                bat 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
+                                bat '''
+                                    REM Apply secrets/configmaps first
+                                    kubectl apply -f k8s/secrets.yaml -n message-publisher
+                                    
+                                    REM Create temp files with substituted images using sed, then apply
+                                    sed "s/${API_IMAGE:-message-publisher-api:latest}/%API_IMAGE%/" k8s/api-deployment.yaml > k8s/api-deployment-temp.yaml
+                                    sed "s/${WORKERS_IMAGE:-message-publisher-workers:latest}/%WORKERS_IMAGE%/" k8s/workers-deployment.yaml > k8s/workers-deployment-temp.yaml
+                                    sed "s/${FRONTEND_IMAGE:-message-publisher-frontend:latest}/%FRONTEND_IMAGE%/" k8s/frontend-deployment.yaml > k8s/frontend-deployment-temp.yaml
+                                    
+                                    kubectl apply -f k8s/api-deployment-temp.yaml -n message-publisher
+                                    kubectl apply -f k8s/workers-deployment-temp.yaml -n message-publisher
+                                    kubectl apply -f k8s/frontend-deployment-temp.yaml -n message-publisher
+                                    
+                                    kubectl apply -f k8s/argocd-application.yaml
+                                '''
+                                bat 'kubectl get pods -n message-publisher'
+                            }
+                            echo "Deployment completed successfully"
+
                         } catch (Exception e) {
-                            echo "Failed to update deployment images: ${e.getMessage()}"
+                            echo "Deployment failed: ${e.getMessage()}"
+                            currentBuild.result = 'UNSTABLE'
                         }
                     }
                 }
@@ -541,54 +579,6 @@ pipeline {
                         sh 'kubectl get nodes'
                     } else {
                         bat 'kubectl get nodes'
-                    }
-                }
-            }
-        }
-
-       stage('Deploy to Kubernetes & Update ArgoCD') {
-            steps {
-                withCredentials([file(credentialsId: "kubeconfig-kind-${env.NODE_NAME}", variable: 'KUBECONFIG')]) {
-                    script {
-                        try {
-                            def currentContext
-                            if (isUnix()) {
-                                currentContext = sh(script: 'kubectl config current-context', returnStdout: true).trim()
-                                sh 'kubectl get nodes'
-                                sh "docker images | grep ${PROJECT_NAME}"
-                            } else {
-                                currentContext = bat(script: '@echo off && kubectl config current-context', returnStdout: true).trim()
-                                bat 'kubectl get nodes'
-                                bat "docker images | findstr ${PROJECT_NAME}"
-                            }
-                            echo "Using Kubernetes context: ${currentContext}"
-                            
-                            // Deploy to Kubernetes
-                            if (isUnix()) {
-                                sh 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
-                                sh '''
-                                    kubectl apply -f k8s/api-deployment.yaml -n message-publisher
-                                    kubectl apply -f k8s/workers-deployment.yaml -n message-publisher  
-                                    kubectl apply -f k8s/frontend-deployment.yaml -n message-publisher
-                                    kubectl apply -f k8s/argocd-application.yaml
-                                '''
-                                sh 'kubectl get pods -n message-publisher'
-                            } else {
-                                bat 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
-                                bat '''
-                                    kubectl apply -f k8s/api-deployment.yaml -n message-publisher
-                                    kubectl apply -f k8s/workers-deployment.yaml -n message-publisher  
-                                    kubectl apply -f k8s/frontend-deployment.yaml -n message-publisher
-                                    kubectl apply -f k8s/argocd-application.yaml
-                                '''
-                                bat 'kubectl get pods -n message-publisher'
-                            }
-                            echo "Deployment completed successfully"
-
-                        } catch (Exception e) {
-                            echo "Deployment failed: ${e.getMessage()}"
-                            currentBuild.result = 'UNSTABLE'
-                        }
                     }
                 }
             }
