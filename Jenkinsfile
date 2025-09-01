@@ -407,9 +407,9 @@ pipeline {
                                 // Try kind load if it's a kind cluster
                                 if (result.contains('kind')) {
                                     sh """
-                                        kind load docker-image ${PROJECT_NAME}-api:latest --name ${KIND_CLUSTER_NAME}
-                                        kind load docker-image ${PROJECT_NAME}-frontend:latest --name ${KIND_CLUSTER_NAME}
-                                        kind load docker-image ${PROJECT_NAME}-workers:latest --name ${KIND_CLUSTER_NAME}
+                                        kind load docker-image ${env.API_IMAGE} --name ${KIND_CLUSTER_NAME}
+                                        kind load docker-image ${env.FRONTEND_IMAGE} --name ${KIND_CLUSTER_NAME}
+                                        kind load docker-image ${env.WORKERS_IMAGE} --name ${KIND_CLUSTER_NAME}
                                     """
                                     echo "Images successfully loaded into Kind cluster: ${KIND_CLUSTER_NAME}"
                                 }
@@ -432,9 +432,9 @@ pipeline {
                                     try {
                                         bat """
                                             set PATH=%PATH%;C:\\\\tools
-                                            kind load docker-image ${PROJECT_NAME}-api:latest --name ${KIND_CLUSTER_NAME}
-                                            kind load docker-image ${PROJECT_NAME}-frontend:latest --name ${KIND_CLUSTER_NAME}
-                                            kind load docker-image ${PROJECT_NAME}-workers:latest --name ${KIND_CLUSTER_NAME}
+                                            kind load docker-image ${env.API_IMAGE} --name ${KIND_CLUSTER_NAME}
+                                            kind load docker-image ${env.FRONTEND_IMAGE} --name ${KIND_CLUSTER_NAME}
+                                            kind load docker-image ${env.WORKERS_IMAGE} --name ${KIND_CLUSTER_NAME}
                                         """
                                         echo "Images successfully loaded into Kind cluster: ${KIND_CLUSTER_NAME}"
                                     } catch (Exception kindErr) {
