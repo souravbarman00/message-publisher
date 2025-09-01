@@ -484,18 +484,18 @@ pipeline {
                 withCredentials([file(credentialsId: "kubeconfig-kind-${env.NODE_NAME}", variable: 'KUBECONFIG')]) {
                     script {
                         try {
-                            // Update deployment image tags to use latest
+                            // Update deployment image tags to use versioned tags
                             if (isUnix()) {
                                 sh """
-                                    kubectl set image deployment/message-publisher-api api=${PROJECT_NAME}-api:latest -n message-publisher
-                                    kubectl set image deployment/message-publisher-frontend frontend=${PROJECT_NAME}-frontend:latest -n message-publisher
-                                    kubectl set image deployment/message-publisher-workers workers=${PROJECT_NAME}-workers:latest -n message-publisher
+                                    kubectl set image deployment/message-publisher-api api=${env.API_IMAGE} -n message-publisher
+                                    kubectl set image deployment/message-publisher-frontend frontend=${env.FRONTEND_IMAGE} -n message-publisher
+                                    kubectl set image deployment/message-publisher-workers workers=${env.WORKERS_IMAGE} -n message-publisher
                                 """
                             } else {
                                 bat """
-                                    kubectl set image deployment/message-publisher-api api=${PROJECT_NAME}-api:latest -n message-publisher
-                                    kubectl set image deployment/message-publisher-frontend frontend=${PROJECT_NAME}-frontend:latest -n message-publisher
-                                    kubectl set image deployment/message-publisher-workers workers=${PROJECT_NAME}-workers:latest -n message-publisher
+                                    kubectl set image deployment/message-publisher-api api=${env.API_IMAGE} -n message-publisher
+                                    kubectl set image deployment/message-publisher-frontend frontend=${env.FRONTEND_IMAGE} -n message-publisher
+                                    kubectl set image deployment/message-publisher-workers workers=${env.WORKERS_IMAGE} -n message-publisher
                                 """
                             }
                             echo "Deployment images updated successfully"
