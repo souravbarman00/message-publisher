@@ -521,10 +521,10 @@ pipeline {
                                     REM Apply secrets/configmaps first
                                     kubectl apply -f k8s/secrets.yaml -n message-publisher
                                     
-                                    REM Create temp files with substituted images using simple string replacement
-                                    powershell -Command "(Get-Content k8s/api-deployment.yaml).Replace('$${API_IMAGE:-message-publisher-api:latest}', '%API_IMAGE%') | Out-File -FilePath k8s/api-deployment-temp.yaml -Encoding UTF8"
-                                    powershell -Command "(Get-Content k8s/workers-deployment.yaml).Replace('$${WORKERS_IMAGE:-message-publisher-workers:latest}', '%WORKERS_IMAGE%') | Out-File -FilePath k8s/workers-deployment-temp.yaml -Encoding UTF8"
-                                    powershell -Command "(Get-Content k8s/frontend-deployment.yaml).Replace('$${FRONTEND_IMAGE:-message-publisher-frontend:latest}', '%FRONTEND_IMAGE%') | Out-File -FilePath k8s/frontend-deployment-temp.yaml -Encoding UTF8"
+                                    REM Create temp files with substituted images using Jenkins environment variables
+                                    powershell -Command "(Get-Content k8s/api-deployment.yaml).Replace('$${API_IMAGE:-message-publisher-api:latest}', '${env.API_IMAGE}') | Out-File -FilePath k8s/api-deployment-temp.yaml -Encoding UTF8"
+                                    powershell -Command "(Get-Content k8s/workers-deployment.yaml).Replace('$${WORKERS_IMAGE:-message-publisher-workers:latest}', '${env.WORKERS_IMAGE}') | Out-File -FilePath k8s/workers-deployment-temp.yaml -Encoding UTF8"
+                                    powershell -Command "(Get-Content k8s/frontend-deployment.yaml).Replace('$${FRONTEND_IMAGE:-message-publisher-frontend:latest}', '${env.FRONTEND_IMAGE}') | Out-File -FilePath k8s/frontend-deployment-temp.yaml -Encoding UTF8"
                                     
                                     kubectl apply -f k8s/api-deployment-temp.yaml -n message-publisher
                                     kubectl apply -f k8s/workers-deployment-temp.yaml -n message-publisher
