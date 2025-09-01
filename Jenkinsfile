@@ -498,34 +498,31 @@ pipeline {
                             // Deploy to Kubernetes with versioned images
                             if (isUnix()) {
                                 sh 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
-                                sh '''
-                                    # Apply secrets/configmaps first
-                                    kubectl apply -f k8s/secrets.yaml -n message-publisher
-                                    
-                                    # Create temp files with substituted images using envsubst
-                                    API_IMAGE="${API_IMAGE}" WORKERS_IMAGE="${WORKERS_IMAGE}" FRONTEND_IMAGE="${FRONTEND_IMAGE}" \\
-                                    envsubst < k8s/api-deployment.yaml > k8s/api-deployment-temp.yaml
-                                    
-                                    API_IMAGE="${API_IMAGE}" WORKERS_IMAGE="${WORKERS_IMAGE}" FRONTEND_IMAGE="${FRONTEND_IMAGE}" \\
-                                    envsubst < k8s/workers-deployment.yaml > k8s/workers-deployment-temp.yaml
-                                    
-                                    API_IMAGE="${API_IMAGE}" WORKERS_IMAGE="${WORKERS_IMAGE}" FRONTEND_IMAGE="${FRONTEND_IMAGE}" \\
-                                    envsubst < k8s/frontend-deployment.yaml > k8s/frontend-deployment-temp.yaml
-                                    
-                                    kubectl apply -f k8s/api-deployment-temp.yaml -n message-publisher
-                                    kubectl apply -f k8s/workers-deployment-temp.yaml -n message-publisher
-                                    kubectl apply -f k8s/frontend-deployment-temp.yaml -n message-publisher
-                                    
-                                    kubectl apply -f k8s/argocd-application.yaml
-                                '''
+                                
+                                // Create temp files with substituted images using Jenkins native methods
+                                writeFile file: 'k8s/api-deployment-temp.yaml', 
+                                    text: readFile('k8s/api-deployment.yaml').replace('${API_IMAGE:-message-publisher-api:latest}', env.API_IMAGE)
+                                writeFile file: 'k8s/workers-deployment-temp.yaml', 
+                                    text: readFile('k8s/workers-deployment.yaml').replace('${WORKERS_IMAGE:-message-publisher-workers:latest}', env.WORKERS_IMAGE)
+                                writeFile file: 'k8s/frontend-deployment-temp.yaml', 
+                                    text: readFile('k8s/frontend-deployment.yaml').replace('${FRONTEND_IMAGE:-message-publisher-frontend:latest}', env.FRONTEND_IMAGE)
+                                
+                                sh 'kubectl apply -f k8s/secrets.yaml -n message-publisher'
+                                sh 'kubectl apply -f k8s/api-deployment-temp.yaml -n message-publisher'
+                                sh 'kubectl apply -f k8s/workers-deployment-temp.yaml -n message-publisher' 
+                                sh 'kubectl apply -f k8s/frontend-deployment-temp.yaml -n message-publisher'
+                                sh 'kubectl apply -f k8s/argocd-application.yaml'
                                 sh 'kubectl get pods -n message-publisher'
                             } else {
                                 bat 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
                                 
-                                // Create temp files with substituted images
-                                bat "powershell -Command \"(Get-Content k8s/api-deployment.yaml).Replace('\\\${API_IMAGE:-message-publisher-api:latest}', '${env.API_IMAGE}') | Out-File -FilePath k8s/api-deployment-temp.yaml -Encoding UTF8\""
-                                bat "powershell -Command \"(Get-Content k8s/workers-deployment.yaml).Replace('\\\${WORKERS_IMAGE:-message-publisher-workers:latest}', '${env.WORKERS_IMAGE}') | Out-File -FilePath k8s/workers-deployment-temp.yaml -Encoding UTF8\""
-                                bat "powershell -Command \"(Get-Content k8s/frontend-deployment.yaml).Replace('\\\${FRONTEND_IMAGE:-message-publisher-frontend:latest}', '${env.FRONTEND_IMAGE}') | Out-File -FilePath k8s/frontend-deployment-temp.yaml -Encoding UTF8\""
+                                // Create temp files with substituted images using Jenkins native methods
+                                writeFile file: 'k8s/api-deployment-temp.yaml', 
+                                    text: readFile('k8s/api-deployment.yaml').replace('${API_IMAGE:-message-publisher-api:latest}', env.API_IMAGE)
+                                writeFile file: 'k8s/workers-deployment-temp.yaml', 
+                                    text: readFile('k8s/workers-deployment.yaml').replace('${WORKERS_IMAGE:-message-publisher-workers:latest}', env.WORKERS_IMAGE)
+                                writeFile file: 'k8s/frontend-deployment-temp.yaml', 
+                                    text: readFile('k8s/frontend-deployment.yaml').replace('${FRONTEND_IMAGE:-message-publisher-frontend:latest}', env.FRONTEND_IMAGE)
                                 
                                 // Apply the deployments
                                 bat 'kubectl apply -f k8s/api-deployment-temp.yaml -n message-publisher'
