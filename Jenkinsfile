@@ -495,39 +495,45 @@ pipeline {
                             }
                             echo "Using Kubernetes context: ${currentContext}"
                             
-                            // Deploy to Kubernetes with versioned images
+                            // Deploy to Kubernetes with versioned images - New Simplified Approach
                             if (isUnix()) {
                                 sh 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
-                                
-                                // Create temp files with substituted images using Jenkins native methods
-                                writeFile file: 'k8s/api-deployment-temp.yaml', 
-                                    text: readFile('k8s/api-deployment.yaml').replace('${API_IMAGE:-message-publisher-api:latest}', env.API_IMAGE)
-                                writeFile file: 'k8s/workers-deployment-temp.yaml', 
-                                    text: readFile('k8s/workers-deployment.yaml').replace('${WORKERS_IMAGE:-message-publisher-workers:latest}', env.WORKERS_IMAGE)
-                                writeFile file: 'k8s/frontend-deployment-temp.yaml', 
-                                    text: readFile('k8s/frontend-deployment.yaml').replace('${FRONTEND_IMAGE:-message-publisher-frontend:latest}', env.FRONTEND_IMAGE)
-                                
                                 sh 'kubectl apply -f k8s/secrets.yaml -n message-publisher'
-                                sh 'kubectl apply -f k8s/api-deployment-temp.yaml -n message-publisher'
-                                sh 'kubectl apply -f k8s/workers-deployment-temp.yaml -n message-publisher' 
-                                sh 'kubectl apply -f k8s/frontend-deployment-temp.yaml -n message-publisher'
+                                
+                                // Apply base deployments
+                                sh 'kubectl apply -f k8s/api-deployment.yaml -n message-publisher'
+                                sh 'kubectl apply -f k8s/workers-deployment.yaml -n message-publisher' 
+                                sh 'kubectl apply -f k8s/frontend-deployment.yaml -n message-publisher'
+                                
+                                // Update to versioned images using kubectl set image
+                                sh "kubectl set image deployment/message-publisher-api api=${env.API_IMAGE} -n message-publisher"
+                                sh "kubectl set image deployment/message-publisher-workers workers=${env.WORKERS_IMAGE} -n message-publisher"
+                                sh "kubectl set image deployment/message-publisher-frontend frontend=${env.FRONTEND_IMAGE} -n message-publisher"
+                                
+                                // Clean up old failed pods
+                                sh 'kubectl delete pods --field-selector=status.phase=Pending -n message-publisher || true'
+                                sh 'kubectl delete pods --field-selector=status.phase=Failed -n message-publisher || true'
+                                
                                 sh 'kubectl apply -f k8s/argocd-application.yaml'
                                 sh 'kubectl get pods -n message-publisher'
                             } else {
                                 bat 'kubectl create namespace message-publisher --dry-run=client -o yaml | kubectl apply -f -'
+                                bat 'kubectl apply -f k8s/secrets.yaml -n message-publisher'
                                 
-                                // Create temp files with substituted images using Jenkins native methods
-                                writeFile file: 'k8s/api-deployment-temp.yaml', 
-                                    text: readFile('k8s/api-deployment.yaml').replace('${API_IMAGE:-message-publisher-api:latest}', env.API_IMAGE)
-                                writeFile file: 'k8s/workers-deployment-temp.yaml', 
-                                    text: readFile('k8s/workers-deployment.yaml').replace('${WORKERS_IMAGE:-message-publisher-workers:latest}', env.WORKERS_IMAGE)
-                                writeFile file: 'k8s/frontend-deployment-temp.yaml', 
-                                    text: readFile('k8s/frontend-deployment.yaml').replace('${FRONTEND_IMAGE:-message-publisher-frontend:latest}', env.FRONTEND_IMAGE)
+                                // Apply base deployments
+                                bat 'kubectl apply -f k8s/api-deployment.yaml -n message-publisher'
+                                bat 'kubectl apply -f k8s/workers-deployment.yaml -n message-publisher' 
+                                bat 'kubectl apply -f k8s/frontend-deployment.yaml -n message-publisher'
                                 
-                                // Apply the deployments
-                                bat 'kubectl apply -f k8s/api-deployment-temp.yaml -n message-publisher'
-                                bat 'kubectl apply -f k8s/workers-deployment-temp.yaml -n message-publisher' 
-                                bat 'kubectl apply -f k8s/frontend-deployment-temp.yaml -n message-publisher'
+                                // Update to versioned images using kubectl set image
+                                bat "kubectl set image deployment/message-publisher-api api=${env.API_IMAGE} -n message-publisher"
+                                bat "kubectl set image deployment/message-publisher-workers workers=${env.WORKERS_IMAGE} -n message-publisher"
+                                bat "kubectl set image deployment/message-publisher-frontend frontend=${env.FRONTEND_IMAGE} -n message-publisher"
+                                
+                                // Clean up old failed pods
+                                bat 'kubectl delete pods --field-selector=status.phase=Pending -n message-publisher 2>nul || echo No pending pods'
+                                bat 'kubectl delete pods --field-selector=status.phase=Failed -n message-publisher 2>nul || echo No failed pods'
+                                
                                 bat 'kubectl apply -f k8s/argocd-application.yaml'
                                 bat 'kubectl get pods -n message-publisher'
                             }
@@ -581,7 +587,7 @@ pipeline {
             }
         }
 
-        stage('Update ArgoCD Application') {
+        stage('Configure ArgoCD Application') {
             steps {
                 withCredentials([file(credentialsId: "kubeconfig-kind-${env.NODE_NAME}", variable: 'KUBECONFIG')]) {
                     script {
@@ -600,12 +606,23 @@ pipeline {
                             }
                             
                             if (appExists == 0) {
-                                echo "ArgoCD application exists, triggering sync..."
+                                echo "ArgoCD application exists, configuring for manual sync only..."
                                 if (isUnix()) {
-                                    sh 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"master\\"}}}" --type merge'
+                                    // Re-enable ArgoCD but with manual sync only (no auto-sync)
+                                    sh '''
+                                        kubectl patch application message-publisher-app -n argocd --type merge -p '{"spec":{"syncPolicy":{"syncOptions":["CreateNamespace=true"]}}}'
+                                        kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"master\\"}}}" --type merge
+                                    '''
                                 } else {
-                                    bat 'kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"master\\"}}}" --type merge'
+                                    // Re-enable ArgoCD but with manual sync only (no auto-sync)
+                                    bat '''
+                                        kubectl patch application message-publisher-app -n argocd --type merge -p "{\\"spec\\":{\\"syncPolicy\\":{\\"syncOptions\\":[\\"CreateNamespace=true\\"]}}}"
+                                        kubectl patch application message-publisher-app -n argocd -p "{\\"spec\\":{\\"source\\":{\\"targetRevision\\":\\"master\\"}}}" --type merge
+                                    '''
                                 }
+                                echo "✅ ArgoCD configured: Manual sync enabled, Auto-sync disabled"
+                                echo "ℹ️  ArgoCD will show drift but won't auto-revert Jenkins deployments"
+                                echo "ℹ️  Use ArgoCD UI to manually sync when needed"
                             } else {
                                 echo "Creating ArgoCD application..."
                                 if (isUnix()) {
@@ -616,7 +633,7 @@ pipeline {
                             }
                             
                         } catch (Exception e) {
-                            echo "ArgoCD update failed: ${e.getMessage()}"
+                            echo "ArgoCD configuration failed: ${e.getMessage()}"
                         }
                     }
                 }
@@ -627,8 +644,24 @@ pipeline {
             steps {
                 script {
                     try {
+                        // Keep only the last 5 versions of each image
+                        if (isUnix()) {
+                            sh '''
+                                # Remove old versioned images, keep latest 5 of each
+                                docker images --format "table {{.Repository}}\\t{{.Tag}}\\t{{.ID}}" | grep message-publisher | grep -v latest | sort -rk2 | awk '{print $1":"$2}' | tail -n +16 | xargs -r docker rmi || true
+                                # Clean up dangling images
+                                docker image prune -f
+                            '''
+                        } else {
+                            bat '''
+                                REM Clean up old Docker images - keep latest 10 versions
+                                for /f "skip=15 tokens=1,2" %%i in ('docker images --format "table {{.Repository}} {{.Tag}}" ^| findstr message-publisher ^| findstr /v latest') do docker rmi %%i:%%j 2>nul || echo Image %%i:%%j not found
+                                REM Clean up dangling images
+                                docker image prune -f
+                            '''
+                        }
                         cleanWs(patterns: [[pattern: 'shared/*.tar', type: 'INCLUDE']], deleteDirs: false)
-                        echo "Docker image artifacts cleaned"
+                        echo "Docker image artifacts and workspace cleaned"
                     } catch (Exception e) {
                         echo "Cleanup warning: ${e.getMessage()}"
                     }

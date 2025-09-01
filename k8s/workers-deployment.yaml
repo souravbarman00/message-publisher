@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
       - name: workers
-        image: ${WORKERS_IMAGE:-message-publisher-workers:latest}
-        imagePullPolicy: Never
+        image: message-publisher-workers:latest
+        imagePullPolicy: Always
         env:
         - name: NODE_ENV
           valueFrom:

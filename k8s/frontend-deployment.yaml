@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: ${FRONTEND_IMAGE:-message-publisher-frontend:latest}
-        imagePullPolicy: Never
+        image: message-publisher-frontend:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 80
         resources:

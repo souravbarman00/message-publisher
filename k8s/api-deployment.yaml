@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
       - name: api
-        image: ${API_IMAGE:-message-publisher-api:latest}
-        imagePullPolicy: Never
+        image: message-publisher-api:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 4000
         env:
